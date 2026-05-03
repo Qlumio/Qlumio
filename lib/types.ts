@@ -56,8 +56,21 @@ export type Event = {
   start_time: string | null;
   end_time: string | null;
   recurring: boolean;
+  responsible_member_id: string | null; // foresatt ansvarlig når barn deltar
   created_at: string;
   participant_ids: string[]; // fra event_participants
+};
+
+export type Task = {
+  id: string;
+  title: string;
+  notes: string | null;
+  due_date: string | null; // YYYY-MM-DD
+  assigned_to: string | null; // family_member_id
+  created_by: string | null; // family_member_id
+  completed: boolean;
+  completed_at: string | null;
+  created_at: string;
 };
 
 export type PlannedExpense = {

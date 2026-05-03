@@ -73,7 +73,10 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
   const getEventsForCell = (memberId: string, dateStr: string): Event[] => {
     const cellDate = new Date(dateStr + "T00:00:00");
     return events.filter((e) => {
-      if (!e.participant_ids.includes(memberId)) return false;
+      // Vis eventet hvis medlemmet er deltaker ELLER ansvarlig foresatt
+      const isParticipant = e.participant_ids.includes(memberId);
+      const isResponsible = e.responsible_member_id === memberId;
+      if (!isParticipant && !isResponsible) return false;
       if (!e.recurring) {
         const startDate = new Date(e.date + "T00:00:00");
         const endDate = e.end_date ? new Date(e.end_date + "T00:00:00") : startDate;
@@ -97,6 +100,7 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
     end_time: string | null;
     recurring: boolean;
     participant_ids: string[];
+    responsible_member_id: string | null;
   }) => {
     if (!modalCell) return;
 
@@ -109,6 +113,7 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
         start_time: data.start_time,
         end_time: data.end_time,
         recurring: data.recurring,
+        responsible_member_id: data.responsible_member_id,
       })
       .select()
       .single();
@@ -183,6 +188,17 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
           <div className="w-px h-5 bg-gray-100" />
           <h1 className="text-lg font-semibold">Aktiviteter</h1>
         </div>
+        <div className="flex items-center gap-2">
+        <Link
+          href="/oppgaver?ny=1"
+          className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white"
+          title="Legg til oppgave"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+          <span className="hidden sm:inline">+ Oppgave</span>
+        </Link>
         <Link
           href="/innstillinger"
           className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-white"
@@ -193,6 +209,7 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
           </svg>
           Innstillinger
         </Link>
+        </div>
       </div>
 
       {/* Ingen medlemmer */}
@@ -297,6 +314,18 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
                           const st = formatTime(event.start_time);
                           const et = formatTime(event.end_time);
 
+                          const responsible = event.responsible_member_id
+                            ? members.find((m) => m.id === event.responsible_member_id)
+                            : null;
+                          const isChildCol = member.role === "child";
+                          // Foresatt ser barnets aktivitet – vis hvilke barn som deltar
+                          const isResponsibleCol = event.responsible_member_id === member.id;
+                          const childParticipants = isResponsibleCol
+                            ? members.filter(
+                                (m) => m.role === "child" && event.participant_ids.includes(m.id)
+                              )
+                            : [];
+
                           return (
                             <div
                               key={event.id}
@@ -321,6 +350,22 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
                                   <span className="ml-1 opacity-50 text-[9px]">⟷</span>
                                 )}
                               </div>
+                              {isChildCol && responsible && (
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <div className={`w-2 h-2 rounded-full ${responsible.color} opacity-80`} />
+                                  <span className="text-[9px] opacity-70 leading-tight truncate">{responsible.name}</span>
+                                </div>
+                              )}
+                              {isResponsibleCol && childParticipants.length > 0 && (
+                                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                  {childParticipants.map((child) => (
+                                    <div key={child.id} className="flex items-center gap-0.5">
+                                      <div className={`w-2 h-2 rounded-full ${child.color} opacity-80`} />
+                                      <span className="text-[9px] opacity-70 leading-tight">{child.name}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -355,6 +400,7 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
         <EventActionsModal
           event={activeEvent.event}
           date={activeEvent.date}
+          members={members}
           onDeleteSingle={handleDeleteSingle}
           onDeleteAll={handleDeleteAll}
           onClose={() => setActiveEvent(null)}

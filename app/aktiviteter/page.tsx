@@ -59,6 +59,7 @@ export default async function AktiviteterPage({
     start_time: e.start_time,
     end_time: e.end_time,
     recurring: e.recurring,
+    responsible_member_id: e.responsible_member_id ?? null,
     created_at: e.created_at,
     participant_ids: (e.event_participants ?? []).map(
       (p: { family_member_id: string }) => p.family_member_id

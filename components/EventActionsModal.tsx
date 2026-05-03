@@ -1,6 +1,6 @@
 "use client";
 
-import type { Event } from "@/lib/types";
+import type { Event, FamilyMember } from "@/lib/types";
 
 const DAY_NAMES = ["Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag"];
 
@@ -17,6 +17,7 @@ function formatTime(t: string | null): string | null {
 type Props = {
   event: Event;
   date: string; // YYYY-MM-DD – datoen som ble klikket (relevant for gjentagende)
+  members: FamilyMember[];
   onDeleteSingle: () => void;   // slett bare denne datoen (unntak)
   onDeleteAll: () => void;      // slett hele eventet
   onClose: () => void;
@@ -25,6 +26,7 @@ type Props = {
 export default function EventActionsModal({
   event,
   date,
+  members,
   onDeleteSingle,
   onDeleteAll,
   onClose,
@@ -32,6 +34,9 @@ export default function EventActionsModal({
   const st = formatTime(event.start_time);
   const et = formatTime(event.end_time);
   const isMultiDay = event.end_date && event.end_date !== event.date;
+  const responsible = event.responsible_member_id
+    ? members.find((m) => m.id === event.responsible_member_id)
+    : null;
 
   return (
     <div
@@ -55,6 +60,12 @@ export default function EventActionsModal({
             <p className="text-sm text-gray-500 mt-0.5">
               ⟷ {formatDisplayDate(event.date)} → {formatDisplayDate(event.end_date!)}
             </p>
+          )}
+          {responsible && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <div className={`w-2.5 h-2.5 rounded-full ${responsible.color}`} />
+              <p className="text-xs text-amber-700">👨‍👩‍👧 Ansvarlig: {responsible.name}</p>
+            </div>
           )}
           {event.recurring && (
             <p className="text-xs text-blue-500 mt-1">↻ Gjentagende ukentlig</p>
