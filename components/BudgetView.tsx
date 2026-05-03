@@ -27,6 +27,15 @@ type Override = {
   amount: number;
 };
 
+type MaintenanceTask = {
+  id: string;
+  title: string;
+  due_date: string;
+  estimated_cost: number;
+  asset_id: string;
+  asset_name: string;
+};
+
 type MonthCol = {
   year: number;
   month: number;
@@ -38,6 +47,7 @@ type MonthCol = {
 type Props = {
   categories: Category[];
   overrides: Override[];
+  maintenanceTasks: MaintenanceTask[];
 };
 
 const MONTH_NAMES = ["jan", "feb", "mar", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "des"];
@@ -61,7 +71,7 @@ function fmt(n: number): string {
   return n.toLocaleString("nb-NO");
 }
 
-export default function BudgetView({ categories: initialCategories, overrides: initialOverrides }: Props) {
+export default function BudgetView({ categories: initialCategories, overrides: initialOverrides, maintenanceTasks }: Props) {
   const monthCols = getMonthCols();
   const currentYear = new Date().getFullYear();
 
@@ -135,10 +145,30 @@ export default function BudgetView({ categories: initialCategories, overrides: i
     return inc - exp;
   };
 
+  const getMaintenanceMonthTotal = (year: number, month: number): number =>
+    maintenanceTasks
+      .filter((t) => {
+        const d = new Date(t.due_date + "T00:00:00");
+        return d.getFullYear() === year && d.getMonth() + 1 === month;
+      })
+      .reduce((sum, t) => sum + t.estimated_cost, 0);
+
+  const getMaintenanceAnnualTotal = (): number =>
+    maintenanceTasks
+      .filter((t) => new Date(t.due_date + "T00:00:00").getFullYear() === currentYear)
+      .reduce((sum, t) => sum + t.estimated_cost, 0);
+
+  const getRestMonth = (year: number, month: number) => {
+    const inc = incomeCat ? getCatMonthTotal(incomeCat, year, month) : 0;
+    const exp = expenseCats.reduce((s, c) => s + getCatMonthTotal(c, year, month), 0);
+    const maint = getMaintenanceMonthTotal(year, month);
+    return inc - exp - maint;
+  };
+
   const getRestAnnual = () => {
     const inc = incomeCat ? getCatAnnualTotal(incomeCat) : 0;
     const exp = expenseCats.reduce((s, c) => s + getCatAnnualTotal(c), 0);
-    return inc - exp;
+    return inc - exp - getMaintenanceAnnualTotal();
   };
 
   // --- Lagre celleverdier ---
@@ -396,6 +426,67 @@ export default function BudgetView({ categories: initialCategories, overrides: i
 
             {/* Spacer */}
             <tr><td colSpan={numCols} className="py-2" /></tr>
+
+            {/* Vedlikehold og prognose */}
+            {maintenanceTasks.length > 0 && (
+              <>
+                <tr>
+                  <td colSpan={numCols} className="sticky left-0 bg-white px-4 py-2 border-t-2 border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-orange-600 uppercase tracking-wider">🔧 Vedlikehold og prognose</span>
+                      <Link href="/eiendeler" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                        Administrer i Eiendeler →
+                      </Link>
+                    </div>
+                  </td>
+                </tr>
+                {maintenanceTasks.map((task) => {
+                  const taskDate = new Date(task.due_date + "T00:00:00");
+                  const taskYear = taskDate.getFullYear();
+                  const taskMonth = taskDate.getMonth() + 1;
+                  return (
+                    <tr key={task.id} className="border-b border-gray-100 hover:bg-orange-50/50">
+                      <td className="sticky left-0 bg-gray-50 px-4 py-1.5" style={{ minWidth: "200px" }}>
+                        <div className="text-sm text-gray-700 truncate">{task.asset_name}</div>
+                        <div className="text-xs text-gray-400 truncate">{task.title}</div>
+                      </td>
+                      {monthCols.map((col) => {
+                        const isThisMonth = col.year === taskYear && col.month === taskMonth;
+                        return (
+                          <td key={`${task.id}-${col.year}-${col.month}`}
+                            className={`text-right px-2 py-1.5 text-sm ${col.isCurrent ? "bg-gray-100" : ""} ${isThisMonth ? "text-orange-600 font-medium" : "text-gray-300"}`}>
+                            {isThisMonth ? task.estimated_cost.toLocaleString("nb-NO") : "–"}
+                          </td>
+                        );
+                      })}
+                      <td className="text-right px-2 py-1.5 text-sm text-gray-400">
+                        {taskYear === currentYear ? task.estimated_cost.toLocaleString("nb-NO") : "–"}
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-orange-50 border-b border-gray-200">
+                  <td className="sticky left-0 bg-orange-100 px-4 py-2 text-sm font-semibold text-orange-700">
+                    Sum vedlikehold
+                  </td>
+                  {monthCols.map((col) => {
+                    const total = getMaintenanceMonthTotal(col.year, col.month);
+                    return (
+                      <td key={`maint-sum-${col.year}-${col.month}`}
+                        className={`text-right px-2 py-2 text-sm font-semibold ${total > 0 ? "text-orange-600" : "text-gray-300"} ${col.isCurrent ? "bg-orange-50" : ""}`}>
+                        {total > 0 ? total.toLocaleString("nb-NO") : "–"}
+                      </td>
+                    );
+                  })}
+                  <td className="text-right px-2 py-2 text-sm font-semibold text-orange-600">
+                    {getMaintenanceAnnualTotal() > 0 ? getMaintenanceAnnualTotal().toLocaleString("nb-NO") : "–"}
+                  </td>
+                </tr>
+              </>
+            )}
+
+            {/* Spacer 2 */}
+            <tr><td colSpan={numCols} className="py-1" /></tr>
 
             {/* Restbeløp */}
             <tr className="border-t-2 border-emerald-500/40 bg-emerald-50">
