@@ -137,9 +137,18 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
     <main className="min-h-screen bg-slate-900 text-white p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Qlumio</h1>
-          <p className="text-slate-400 text-sm mt-0.5">Less chaos, more family</p>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-slate-800"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Hjem
+          </Link>
+          <div className="w-px h-5 bg-slate-700" />
+          <h1 className="text-lg font-semibold">Aktiviteter</h1>
         </div>
         <Link
           href="/innstillinger"
