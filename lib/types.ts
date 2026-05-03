@@ -54,3 +54,13 @@ export type Event = {
   created_at: string;
   participant_ids: string[]; // fra event_participants
 };
+
+export type PlannedExpense = {
+  id: string;
+  title: string;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  category: string; // skole | sport | ferie | annet
+  notes: string | null;
+  created_at: string;
+};

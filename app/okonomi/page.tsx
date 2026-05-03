@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default async function OkonomiPage() {
   const currentYear = new Date().getFullYear();
 
-  const [categoriesResult, overridesResult, tasksResult] = await Promise.all([
+  const [categoriesResult, overridesResult, tasksResult, plannedResult] = await Promise.all([
     supabase
       .from("budget_categories")
       .select("*, budget_items(*)")
@@ -23,6 +23,10 @@ export default async function OkonomiPage() {
       .select("id, title, due_date, estimated_cost, asset_id, assets(name)")
       .not("estimated_cost", "is", null)
       .gt("estimated_cost", 0),
+    supabase
+      .from("planned_expenses")
+      .select("*")
+      .order("date"),
   ]);
 
   const categories = (categoriesResult.data ?? []).map((cat) => ({
@@ -48,6 +52,7 @@ export default async function OkonomiPage() {
       categories={categories}
       overrides={overridesResult.data ?? []}
       maintenanceTasks={maintenanceTasks}
+      plannedExpenses={plannedResult.data ?? []}
     />
   );
 }
