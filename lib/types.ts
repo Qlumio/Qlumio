@@ -1,3 +1,26 @@
+export type Asset = {
+  id: string;
+  name: string;
+  type: string;
+  purchase_year: number | null;
+  description: string | null;
+  created_at: string;
+};
+
+export type AssetTask = {
+  id: string;
+  asset_id: string;
+  title: string;
+  due_date: string; // YYYY-MM-DD
+  estimated_cost: number | null;
+  responsible_member_id: string | null;
+  recurring: boolean;
+  recurring_months: number | null;
+  notes: string | null;
+  event_id: string | null;
+  created_at: string;
+};
+
 export type FamilyMember = {
   id: string;
   name: string;

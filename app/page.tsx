@@ -21,15 +21,15 @@ const modules = [
     bg: "bg-blue-500/10",
   },
   {
-    href: "/anleggsregister",
-    title: "Anleggsregister",
+    href: "/eiendeler",
+    title: "Eiendeler",
     description: "Oversikt over eiendeler og kommende vedlikeholdskostnader",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
       </svg>
     ),
-    available: false,
+    available: true,
     color: "text-emerald-400",
     bg: "bg-emerald-500/10",
   },
@@ -46,6 +46,19 @@ const modules = [
     color: "text-violet-400",
     bg: "bg-violet-500/10",
   },
+  {
+    href: "/lan-forsikring-pensjon",
+    title: "Lån, forsikringer og pensjon",
+    description: "Oversikt over lån, forsikringsavtaler og pensjonssparing",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+    ),
+    available: false,
+    color: "text-amber-400",
+    bg: "bg-amber-500/10",
+  },
 ];
 
 export default function Home() {
@@ -56,7 +69,7 @@ export default function Home() {
         <div className="flex items-center justify-between mb-10 pt-4">
           <div>
             <h1 className="text-3xl font-bold">Qlumio</h1>
-            <p className="text-slate-400 text-sm mt-0.5">Less chaos, more family</p>
+            <p className="text-slate-400 text-sm mt-0.5">Less Chaos, more family time</p>
           </div>
           <Link
             href="/innstillinger"
