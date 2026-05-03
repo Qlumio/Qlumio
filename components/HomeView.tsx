@@ -9,14 +9,14 @@ import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
 // ─── Modul-konfigurasjon ───────────────────────────────────────────────────
 
 const ALL_MODULES = [
-  { href: "/aktiviteter", title: "Aktiviteter", icon: "📅", roles: ["admin", "member"] },
-  { href: "/oppgaver", title: "Oppgaver", icon: "✅", roles: ["admin", "member"] },
-  { href: "/innkjop", title: "Innkjøp", icon: "🛒", roles: ["admin", "member"] },
-  { href: "/eiendeler", title: "Eiendeler", icon: "🔧", roles: ["admin"] },
-  { href: "/okonomi", title: "Økonomi", icon: "💰", roles: ["admin"] },
-  { href: "/planlagte-kostnader", title: "Planlagte kostnader", icon: "📋", roles: ["admin"] },
-  { href: "/lan-forsikring-pensjon", title: "Lån & forsikring", icon: "🛡️", roles: ["admin"] },
-  { href: "/innstillinger", title: "Innstillinger", icon: "⚙️", roles: ["admin"] },
+  { href: "/aktiviteter", title: "Aktiviteter", icon: "📅", roles: ["admin", "member"], description: "Kalender og familieaktiviteter" },
+  { href: "/oppgaver", title: "Oppgaver", icon: "✅", roles: ["admin", "member"], description: "Gjøremål og praktiske oppgaver" },
+  { href: "/innkjop", title: "Innkjøp", icon: "🛒", roles: ["admin", "member"], description: "Handlelister og innkjøp" },
+  { href: "/eiendeler", title: "Eiendeler", icon: "🔧", roles: ["admin"], description: "Oversikt over eiendeler og utstyr" },
+  { href: "/okonomi", title: "Økonomi", icon: "💰", roles: ["admin"], description: "Inntekter, utgifter og budsjett" },
+  { href: "/planlagte-kostnader", title: "Planlagte kostnader", icon: "📋", roles: ["admin"], description: "Fremtidige og planlagte utgifter" },
+  { href: "/lan-forsikring-pensjon", title: "Lån & forsikring", icon: "🛡️", roles: ["admin"], description: "Lån, forsikringer og pensjon" },
+  { href: "/innstillinger", title: "Innstillinger", icon: "⚙️", roles: ["admin"], description: "" },
 ];
 
 // ─── Hjelpefunksjoner ──────────────────────────────────────────────────────
@@ -172,12 +172,19 @@ export default function HomeView({ members, events, exceptions, tasks, todayStr 
     return `${d.getDate()}. ${MONTH_NAMES[d.getMonth()]}`;
   };
 
+  // I dag-events og forfalt-oppgaver for kompakt snipp
+  const todayEvents = getEventsForDate(events, exceptions, todayStr, filterMemberId);
+  const tomorrowDate = new Date(todayDate);
+  tomorrowDate.setDate(todayDate.getDate() + 1);
+  const tomorrowStr = formatDate(tomorrowDate);
+  const tomorrowEvents = getEventsForDate(events, exceptions, tomorrowStr, filterMemberId);
+
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-lg mx-auto px-4 pb-10">
 
         {/* ── Header ── */}
-        <div className="flex items-center justify-between pt-8 pb-4">
+        <div className="flex items-center justify-between pt-8 pb-5">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{getGreeting(freshUser.name)}</h1>
             <p className="text-sm text-gray-400 mt-0.5">
@@ -186,192 +193,106 @@ export default function HomeView({ members, events, exceptions, tasks, todayStr 
               })}
             </p>
           </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setCurrentUser(null)}
-              className="flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg hover:bg-white transition-colors group"
-              title="Bytt bruker"
-            >
-              <div className={`w-7 h-7 rounded-full ${freshUser.color} flex items-center justify-center text-white text-xs font-bold`}>
-                {freshUser.name[0].toUpperCase()}
-              </div>
-            </button>
-          </div>
+          <button
+            onClick={() => setCurrentUser(null)}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white transition-colors"
+            title="Bytt bruker"
+          >
+            <div className={`w-8 h-8 rounded-full ${freshUser.color} flex items-center justify-center text-white text-sm font-bold`}>
+              {freshUser.name[0].toUpperCase()}
+            </div>
+          </button>
         </div>
 
-        {/* ── Denne uken ── */}
-        <section className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Denne uken</h2>
-            <Link href="/aktiviteter" className="text-xs text-blue-500 hover:text-blue-600">Se kalender →</Link>
-          </div>
-          <div className="bg-white rounded-xl overflow-hidden divide-y divide-gray-100">
-            {thisWeekDays.every((d) => d.events.length === 0) ? (
-              <p className="text-sm text-gray-400 px-4 py-4 text-center">Ingen aktiviteter denne uken</p>
-            ) : (
-              thisWeekDays.map(({ dateStr, events: dayEvents }) => {
-                const d = new Date(dateStr + "T00:00:00");
-                const isToday = dateStr === todayStr;
-                const isPast = dateStr < todayStr;
-                if (dayEvents.length === 0 && !isToday) return null;
-                return (
-                  <div key={dateStr} className={`flex gap-3 px-4 py-2.5 ${isPast && !isToday ? "opacity-40" : ""}`}>
-                    <div className={`flex-shrink-0 w-10 text-center pt-0.5`}>
-                      <div className={`text-xs font-medium ${isToday ? "text-blue-500" : "text-gray-400"}`}>
-                        {DAY_NAMES_SHORT[d.getDay()]}
-                      </div>
-                      <div className={`text-lg font-bold leading-tight ${isToday ? "text-blue-500" : "text-gray-700"}`}>
-                        {d.getDate()}
-                      </div>
+        {/* ── Kompakt i dag / i morgen + forfalt ── */}
+        {(todayEvents.length > 0 || tomorrowEvents.length > 0 || overdueTasks.length > 0) && (
+          <div className="bg-white rounded-xl divide-y divide-gray-100 mb-5">
+            {overdueTasks.length > 0 && (
+              <Link href="/oppgaver" className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                <span className="text-base">⚠️</span>
+                <span className="text-sm text-red-500 font-medium">
+                  {overdueTasks.length} forfalt{overdueTasks.length === 1 ? " oppgave" : "e oppgaver"}
+                </span>
+                <span className="ml-auto text-xs text-gray-300">→</span>
+              </Link>
+            )}
+            {todayEvents.length > 0 && (
+              <Link href="/aktiviteter" className="flex items-start gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                <div className="text-center flex-shrink-0 w-8 pt-0.5">
+                  <div className="text-[10px] font-medium text-blue-500 uppercase">i dag</div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  {todayEvents.map((ev) => (
+                    <div key={ev.id} className="text-sm text-gray-700 truncate">
+                      {ev.title}
+                      {ev.start_time && <span className="text-gray-400 ml-1.5 text-xs">{ev.start_time.slice(0, 5)}</span>}
                     </div>
-                    <div className="flex-1 min-w-0 py-0.5">
-                      {dayEvents.length === 0 ? (
-                        <p className="text-sm text-gray-300 pt-1">Fri dag</p>
-                      ) : (
-                        dayEvents.map((ev) => {
-                          const childParts = ev.participant_ids
-                            .map((id) => members.find((m) => m.id === id))
-                            .filter((m) => m?.role === "child");
-                          const resp = ev.responsible_member_id
-                            ? members.find((m) => m.id === ev.responsible_member_id)
-                            : null;
-                          return (
-                            <div key={ev.id} className="flex items-start gap-2 py-0.5">
-                              <div className="flex-1 min-w-0">
-                                <span className="text-sm font-medium text-gray-800">{ev.title}</span>
-                                {ev.start_time && (
-                                  <span className="text-xs text-gray-400 ml-1.5">{ev.start_time.slice(0, 5)}</span>
-                                )}
-                                {(childParts.length > 0 || resp) && (
-                                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                    {childParts.map((child) => child && (
-                                      <div key={child.id} className="flex items-center gap-1">
-                                        <div className={`w-2 h-2 rounded-full ${child.color}`} />
-                                        <span className="text-xs text-gray-400">{child.name}</span>
-                                      </div>
-                                    ))}
-                                    {resp && !ev.participant_ids.includes(freshUser.id) && (
-                                      <span className="text-xs text-amber-600">ansvarlig</span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
+                  ))}
+                </div>
+                <span className="text-xs text-gray-300 flex-shrink-0">→</span>
+              </Link>
+            )}
+            {tomorrowEvents.length > 0 && (
+              <Link href="/aktiviteter" className="flex items-start gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                <div className="text-center flex-shrink-0 w-8 pt-0.5">
+                  <div className="text-[10px] font-medium text-gray-400 uppercase">i morgen</div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  {tomorrowEvents.map((ev) => (
+                    <div key={ev.id} className="text-sm text-gray-500 truncate">
+                      {ev.title}
+                      {ev.start_time && <span className="text-gray-400 ml-1.5 text-xs">{ev.start_time.slice(0, 5)}</span>}
                     </div>
-                  </div>
-                );
-              })
+                  ))}
+                </div>
+                <span className="text-xs text-gray-300 flex-shrink-0">→</span>
+              </Link>
             )}
           </div>
-        </section>
-
-        {/* ── Neste uke (kun hvis det er events) ── */}
-        {hasNextWeekEvents && (
-          <section className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Neste uke</h2>
-            </div>
-            <div className="bg-white rounded-xl overflow-hidden divide-y divide-gray-100">
-              {nextWeekDays.filter((d) => d.events.length > 0).map(({ dateStr, events: dayEvents }) => {
-                const d = new Date(dateStr + "T00:00:00");
-                return (
-                  <div key={dateStr} className="flex gap-3 px-4 py-2.5">
-                    <div className="flex-shrink-0 w-10 text-center pt-0.5">
-                      <div className="text-xs font-medium text-gray-400">{DAY_NAMES_SHORT[d.getDay()]}</div>
-                      <div className="text-lg font-bold leading-tight text-gray-600">{d.getDate()}</div>
-                    </div>
-                    <div className="flex-1 min-w-0 py-0.5">
-                      {dayEvents.map((ev) => (
-                        <div key={ev.id} className="py-0.5">
-                          <span className="text-sm text-gray-600">{ev.title}</span>
-                          {ev.start_time && (
-                            <span className="text-xs text-gray-400 ml-1.5">{ev.start_time.slice(0, 5)}</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
         )}
 
-        {/* ── Oppgaver ── */}
-        <section className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Oppgaver</h2>
-            <Link href="/oppgaver" className="text-xs text-blue-500 hover:text-blue-600">Se alle →</Link>
-          </div>
-          <div className="bg-white rounded-xl overflow-hidden">
-            {pendingTasks.length === 0 ? (
-              <div className="px-4 py-4 text-center">
-                <p className="text-sm text-gray-400">Ingen åpne oppgaver 🎉</p>
-                <Link href="/oppgaver" className="text-xs text-blue-500 mt-1 inline-block">+ Legg til oppgave</Link>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {overdueTasks.map((task) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    members={members}
-                    dueLabel={formatDueDate(task.due_date)}
-                    isOverdue
-                    completing={completingId === task.id}
-                    onToggle={() => toggleTask(task.id, true)}
-                  />
-                ))}
-                {upcomingTasks.slice(0, 5).map((task) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    members={members}
-                    dueLabel={formatDueDate(task.due_date)}
-                    isOverdue={false}
-                    completing={completingId === task.id}
-                    onToggle={() => toggleTask(task.id, true)}
-                  />
-                ))}
-                {upcomingTasks.length > 5 && (
-                  <div className="px-4 py-2.5">
-                    <Link href="/oppgaver" className="text-xs text-gray-400 hover:text-blue-500">
-                      + {upcomingTasks.length - 5} til i Oppgaver
-                    </Link>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* ── Modul-snarveier ── */}
-        <section>
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Moduler</h2>
-          <div className="grid grid-cols-4 gap-2">
-            {visibleModules.filter((m) => m.href !== "/innstillinger").map((mod) => (
+        {/* ── Moduler ── */}
+        <div className="space-y-3">
+          {visibleModules.filter((m) => m.href !== "/innstillinger").map((mod) => {
+            // Badge for oppgaver
+            const badge = mod.href === "/oppgaver" && pendingTasks.length > 0
+              ? pendingTasks.length
+              : null;
+            return (
               <Link
                 key={mod.href}
                 href={mod.href}
-                className="flex flex-col items-center gap-1.5 p-3 bg-white hover:bg-gray-100 rounded-xl transition-colors text-center"
+                className="flex items-center gap-4 p-5 bg-white hover:bg-gray-100 rounded-xl transition-colors group"
               >
-                <span className="text-2xl">{mod.icon}</span>
-                <span className="text-[10px] text-gray-600 leading-tight">{mod.title}</span>
+                <div className="text-3xl flex-shrink-0">{mod.icon}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-gray-900 group-hover:text-gray-900">{mod.title}</div>
+                  <div className="text-sm text-gray-400 mt-0.5">{mod.description}</div>
+                </div>
+                {badge !== null && (
+                  <span className="bg-blue-500 text-white text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
+                    {badge}
+                  </span>
+                )}
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-gray-300 group-hover:text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
               </Link>
-            ))}
-          </div>
+            );
+          })}
           {showSettings && (
             <Link
               href="/innstillinger"
-              className="flex items-center gap-2 mt-2 px-4 py-2.5 bg-white hover:bg-gray-100 rounded-xl transition-colors text-sm text-gray-500"
+              className="flex items-center gap-4 p-4 bg-white hover:bg-gray-100 rounded-xl transition-colors group"
             >
-              <span>⚙️</span> Innstillinger
+              <div className="text-2xl flex-shrink-0">⚙️</div>
+              <div className="flex-1 font-medium text-gray-600 group-hover:text-gray-900">Innstillinger</div>
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-300 group-hover:text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
             </Link>
           )}
-        </section>
+        </div>
 
       </div>
     </main>
