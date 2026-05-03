@@ -27,7 +27,7 @@ export default function OmPage() {
 
         {/* Intro */}
         <div className="bg-white rounded-xl p-5 mb-4">
-          <p className="text-gray-700 leading-relaxed">
+          <p className="text-gray-700 leading-relaxed font-medium">
             Qlumio er utviklet for å gi familier bedre oversikt, struktur og kontroll i hverdagen.
           </p>
           <p className="text-gray-500 text-sm leading-relaxed mt-3">
@@ -64,6 +64,31 @@ export default function OmPage() {
           <p className="text-gray-500 text-sm leading-relaxed mt-4">
             Ved å koble disse sammen kan Qlumio gi bedre innsikt i fremtidige behov, spesielt knyttet til vedlikehold og økonomi. Målet er å gjøre det enklere å planlegge, prioritere og unngå uforutsette utgifter.
           </p>
+        </div>
+
+        {/* Konkurranseutsetting */}
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-5 mb-4">
+          <h2 className="text-sm font-semibold text-amber-700 uppercase tracking-wide mb-3">Spar penger – konkurranseutsett avtalene dine</h2>
+          <p className="text-gray-600 text-sm leading-relaxed">
+            En av de mest konkrete gevinstene med Qlumio er muligheten til å enkelt konkurranseutsette forsikringer, lån og andre løpende avtaler.
+          </p>
+          <p className="text-gray-500 text-sm leading-relaxed mt-3">
+            Mange betaler for mye fordi avtalene aldri gjennomgås. Qlumio samler alle forsikringer, lån og avtaler på ett sted – og gjør det enkelt å eksportere en oversikt du kan sende til flere leverandører for å innhente tilbud. Med jevnlige gjennomganger kan du sikre at du alltid har de beste betingelsene.
+          </p>
+          <div className="mt-4 space-y-2">
+            <div className="flex items-start gap-2 text-sm text-gray-600">
+              <span className="text-amber-500 mt-0.5">✓</span>
+              <span>Samlet oversikt over alle forsikringer og lån</span>
+            </div>
+            <div className="flex items-start gap-2 text-sm text-gray-600">
+              <span className="text-amber-500 mt-0.5">✓</span>
+              <span>Eksporter og send til flere leverandører på sekunder</span>
+            </div>
+            <div className="flex items-start gap-2 text-sm text-gray-600">
+              <span className="text-amber-500 mt-0.5">✓</span>
+              <span>Hold oversikt over fornyelsesdatoer og betingelser</span>
+            </div>
+          </div>
         </div>
 
         {/* Inspirasjon */}

@@ -150,11 +150,23 @@ export default function Home() {
         </div>
 
         {/* Om appen */}
-        <div className="mt-8 text-center">
-          <Link href="/om" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-            Om Qlumio
-          </Link>
-        </div>
+        <Link
+          href="/om"
+          className="flex items-center gap-4 mt-4 p-4 bg-white hover:bg-gray-100 rounded-xl transition-colors group"
+        >
+          <div className="bg-gray-100 text-gray-500 p-2.5 rounded-xl flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <div className="font-medium text-sm group-hover:text-gray-900 transition-colors">Om Qlumio</div>
+            <div className="text-xs text-gray-400 mt-0.5">Hva er Qlumio og hva er visjonen?</div>
+          </div>
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-300 group-hover:text-gray-400 ml-auto flex-shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
 
       </div>
     </main>
