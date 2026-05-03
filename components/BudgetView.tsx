@@ -139,12 +139,6 @@ export default function BudgetView({ categories: initialCategories, overrides: i
   const incomeCat = categories.find((c) => c.type === "income");
   const expenseCats = categories.filter((c) => ["loan", "expense", "insurance", "savings"].includes(c.type));
 
-  const getRestMonth = (year: number, month: number) => {
-    const inc = incomeCat ? getCatMonthTotal(incomeCat, year, month) : 0;
-    const exp = expenseCats.reduce((s, c) => s + getCatMonthTotal(c, year, month), 0);
-    return inc - exp;
-  };
-
   const getMaintenanceMonthTotal = (year: number, month: number): number =>
     maintenanceTasks
       .filter((t) => {
