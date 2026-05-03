@@ -148,6 +148,14 @@ export default function Home() {
             )
           )}
         </div>
+
+        {/* Om appen */}
+        <div className="mt-8 text-center">
+          <Link href="/om" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+            Om Qlumio
+          </Link>
+        </div>
+
       </div>
     </main>
   );
