@@ -204,48 +204,70 @@ export default function HomeView({ members, events, exceptions, tasks, todayStr 
           </button>
         </div>
 
+        {/* ── Hurtighandlinger ── */}
+        <div className="flex gap-2 mb-5">
+          <Link
+            href="/oppgaver?ny=1"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-100 rounded-lg text-sm font-medium text-gray-700 transition-colors flex-1 justify-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Ny oppgave
+          </Link>
+          <Link
+            href="/aktiviteter?ny=1"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-100 rounded-lg text-sm font-medium text-gray-700 transition-colors flex-1 justify-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Ny aktivitet
+          </Link>
+        </div>
+
         {/* ── Kompakt i dag / i morgen + forfalt ── */}
         {(todayEvents.length > 0 || tomorrowEvents.length > 0 || overdueTasks.length > 0) && (
-          <div className="bg-white rounded-xl divide-y divide-gray-100 mb-5">
+          <div className="space-y-2 mb-5">
             {overdueTasks.length > 0 && (
-              <Link href="/oppgaver" className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
+              <Link href="/oppgaver" className="flex items-center gap-3 bg-red-50 px-4 py-3 rounded-xl hover:bg-red-100 transition-colors">
                 <span className="text-base">⚠️</span>
-                <span className="text-sm text-red-500 font-medium">
+                <span className="text-sm text-red-600 font-medium">
                   {overdueTasks.length} forfalt{overdueTasks.length === 1 ? " oppgave" : "e oppgaver"}
                 </span>
-                <span className="ml-auto text-xs text-gray-300">→</span>
+                <span className="ml-auto text-xs text-red-300">→</span>
               </Link>
             )}
             {todayEvents.length > 0 && (
-              <Link href="/aktiviteter" className="flex items-start gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
-                <div className="text-center flex-shrink-0 w-8 pt-0.5">
-                  <div className="text-[10px] font-medium text-blue-500 uppercase">i dag</div>
+              <Link href="/aktiviteter" className="block bg-white px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-semibold text-blue-500 uppercase tracking-wider">I dag</span>
+                  <span className="text-xs text-gray-300">→</span>
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="space-y-1.5">
                   {todayEvents.map((ev) => (
-                    <div key={ev.id} className="text-sm text-gray-700 truncate">
-                      {ev.title}
-                      {ev.start_time && <span className="text-gray-400 ml-1.5 text-xs">{ev.start_time.slice(0, 5)}</span>}
+                    <div key={ev.id} className="flex items-center gap-2">
+                      <span className="text-sm text-gray-800">{ev.title}</span>
+                      {ev.start_time && <span className="text-xs text-gray-400">{ev.start_time.slice(0, 5)}</span>}
                     </div>
                   ))}
                 </div>
-                <span className="text-xs text-gray-300 flex-shrink-0">→</span>
               </Link>
             )}
             {tomorrowEvents.length > 0 && (
-              <Link href="/aktiviteter" className="flex items-start gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
-                <div className="text-center flex-shrink-0 w-8 pt-0.5">
-                  <div className="text-[10px] font-medium text-gray-400 uppercase">i morgen</div>
+              <Link href="/aktiviteter" className="block bg-white px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">I morgen</span>
+                  <span className="text-xs text-gray-300">→</span>
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="space-y-1.5">
                   {tomorrowEvents.map((ev) => (
-                    <div key={ev.id} className="text-sm text-gray-500 truncate">
-                      {ev.title}
-                      {ev.start_time && <span className="text-gray-400 ml-1.5 text-xs">{ev.start_time.slice(0, 5)}</span>}
+                    <div key={ev.id} className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">{ev.title}</span>
+                      {ev.start_time && <span className="text-xs text-gray-400">{ev.start_time.slice(0, 5)}</span>}
                     </div>
                   ))}
                 </div>
-                <span className="text-xs text-gray-300 flex-shrink-0">→</span>
               </Link>
             )}
           </div>
