@@ -46,7 +46,7 @@ type PlannedExpense = {
 };
 
 const CAT_EMOJI: Record<string, string> = {
-  skole: "📚", sport: "⚽", ferie: "✈️", annet: "📦",
+  skole: "📚", sport: "⚽", ferie: "✈️", annet: "📦", innkjop: "🛍️",
 };
 
 type MonthCol = {
@@ -68,14 +68,14 @@ const MONTH_NAMES = ["jan", "feb", "mar", "apr", "mai", "jun", "jul", "aug", "se
 
 function getMonthCols(): MonthCol[] {
   const now = new Date();
-  return Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() + i - 2, 1);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     return {
       year: d.getFullYear(),
       month: d.getMonth() + 1,
       label: MONTH_NAMES[d.getMonth()],
-      isCurrent: i === 2,
-      isPast: i < 2,
+      isCurrent: i === 0,
+      isPast: false,
     };
   });
 }
@@ -104,6 +104,8 @@ export default function BudgetView({ categories: initialCategories, overrides: i
     initialOverrides.forEach((ov) => { o[`${ov.item_id}-${ov.year}-${ov.month}`] = Number(ov.amount); });
     return o;
   });
+
+  const [showOneTimeDetails, setShowOneTimeDetails] = useState(false);
 
   // Redigering av celleverdier
   const [editKey, setEditKey] = useState<string | null>(null);
@@ -191,6 +193,20 @@ export default function BudgetView({ categories: initialCategories, overrides: i
     const inc = incomeCat ? getCatAnnualTotal(incomeCat) : 0;
     const exp = expenseCats.reduce((s, c) => s + getCatAnnualTotal(c), 0);
     return inc - exp - getMaintenanceAnnualTotal() - getPlannedAnnualTotal();
+  };
+
+  // --- Prognose: anbefalt månedlig avsetning ---
+  const getMonthlyRecommendation = (): number => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const horizon = new Date(today.getFullYear(), today.getMonth() + 12, 1);
+    const futureMaint = maintenanceTasks
+      .filter((t) => { const d = new Date(t.due_date + "T00:00:00"); return d >= today && d < horizon; })
+      .reduce((s, t) => s + t.estimated_cost, 0);
+    const futurePlanned = plannedExpenses
+      .filter((e) => { const d = new Date(e.date + "T00:00:00"); return d >= today && d < horizon; })
+      .reduce((s, e) => s + e.amount, 0);
+    return Math.ceil((futureMaint + futurePlanned) / 12);
   };
 
   // --- Lagre celleverdier ---
@@ -449,124 +465,132 @@ export default function BudgetView({ categories: initialCategories, overrides: i
             {/* Spacer */}
             <tr><td colSpan={numCols} className="py-2" /></tr>
 
-            {/* Vedlikehold og prognose */}
-            {maintenanceTasks.length > 0 && (
-              <>
-                <tr>
-                  <td colSpan={numCols} className="sticky left-0 bg-white px-4 py-2 border-t-2 border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-orange-600 uppercase tracking-wider">🔧 Vedlikehold og prognose</span>
-                      <Link href="/eiendeler" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-                        Administrer i Eiendeler →
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-                {maintenanceTasks.map((task) => {
-                  const taskDate = new Date(task.due_date + "T00:00:00");
-                  const taskYear = taskDate.getFullYear();
-                  const taskMonth = taskDate.getMonth() + 1;
-                  return (
-                    <tr key={task.id} className="border-b border-gray-100 hover:bg-orange-50/50">
-                      <td className="sticky left-0 bg-gray-50 px-4 py-1.5" style={{ minWidth: "200px" }}>
-                        <div className="text-sm text-gray-700 truncate">{task.asset_name}</div>
-                        <div className="text-xs text-gray-400 truncate">{task.title}</div>
-                      </td>
-                      {monthCols.map((col) => {
-                        const isThisMonth = col.year === taskYear && col.month === taskMonth;
-                        return (
-                          <td key={`${task.id}-${col.year}-${col.month}`}
-                            className={`text-right px-2 py-1.5 text-sm ${col.isCurrent ? "bg-gray-100" : ""} ${isThisMonth ? "text-orange-600 font-medium" : "text-gray-300"}`}>
-                            {isThisMonth ? task.estimated_cost.toLocaleString("nb-NO") : "–"}
-                          </td>
-                        );
-                      })}
-                      <td className="text-right px-2 py-1.5 text-sm text-gray-400">
-                        {taskYear === currentYear ? task.estimated_cost.toLocaleString("nb-NO") : "–"}
-                      </td>
-                    </tr>
-                  );
-                })}
-                <tr className="bg-orange-50 border-b border-gray-200">
-                  <td className="sticky left-0 bg-orange-100 px-4 py-2 text-sm font-semibold text-orange-700">
-                    Sum vedlikehold
-                  </td>
-                  {monthCols.map((col) => {
-                    const total = getMaintenanceMonthTotal(col.year, col.month);
-                    return (
-                      <td key={`maint-sum-${col.year}-${col.month}`}
-                        className={`text-right px-2 py-2 text-sm font-semibold ${total > 0 ? "text-orange-600" : "text-gray-300"} ${col.isCurrent ? "bg-orange-50" : ""}`}>
-                        {total > 0 ? total.toLocaleString("nb-NO") : "–"}
-                      </td>
-                    );
-                  })}
-                  <td className="text-right px-2 py-2 text-sm font-semibold text-orange-600">
-                    {getMaintenanceAnnualTotal() > 0 ? getMaintenanceAnnualTotal().toLocaleString("nb-NO") : "–"}
-                  </td>
-                </tr>
-              </>
-            )}
-
-            {/* Planlagte kostnader */}
-            {plannedExpenses.length > 0 && (
-              <>
-                <tr>
-                  <td colSpan={numCols} className="sticky left-0 bg-white px-4 py-2 border-t-2 border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-violet-600 uppercase tracking-wider">💸 Planlagte kostnader</span>
-                      <Link href="/planlagte-kostnader" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-                        Administrer →
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-                {plannedExpenses.map((expense) => {
-                  const expDate = new Date(expense.date + "T00:00:00");
-                  const expYear = expDate.getFullYear();
-                  const expMonth = expDate.getMonth() + 1;
-                  return (
-                    <tr key={expense.id} className="border-b border-gray-100 hover:bg-violet-50/40">
-                      <td className="sticky left-0 bg-gray-50 px-4 py-1.5" style={{ minWidth: "200px" }}>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm">{CAT_EMOJI[expense.category] ?? "📦"}</span>
-                          <span className="text-sm text-gray-700 truncate">{expense.title}</span>
+            {/* Engangsutgifter (vedlikehold + planlagte) – kombinert */}
+            {(maintenanceTasks.length > 0 || plannedExpenses.length > 0) && (() => {
+              const rec = getMonthlyRecommendation();
+              return (
+                <>
+                  {/* Klikbar seksjonsheader */}
+                  <tr>
+                    <td colSpan={numCols} className="sticky left-0 bg-white px-4 py-2 border-t-2 border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={() => setShowOneTimeDetails((v) => !v)}
+                          className="flex items-center gap-2 text-xs font-bold text-gray-600 uppercase tracking-wider hover:text-gray-900 transition-colors"
+                        >
+                          <span className={`transition-transform text-gray-400 ${showOneTimeDetails ? "rotate-90" : ""}`}>▶</span>
+                          💸 Engangsutgifter
+                          <span className="text-gray-400 font-normal normal-case tracking-normal">
+                            ({maintenanceTasks.length + plannedExpenses.length} poster)
+                          </span>
+                        </button>
+                        <div className="flex gap-3">
+                          <Link href="/eiendeler" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Vedlikehold →</Link>
+                          <Link href="/planlagte-kostnader" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Planlagte →</Link>
                         </div>
-                        {expense.notes && <div className="text-xs text-gray-400 truncate ml-6">{expense.notes}</div>}
+                      </div>
+                    </td>
+                  </tr>
+
+                  {/* Detaljer – kun synlig når utvidet */}
+                  {showOneTimeDetails && (
+                    <>
+                      {/* Vedlikehold */}
+                      {maintenanceTasks.length > 0 && (
+                        <>
+                          <tr><td colSpan={numCols} className="sticky left-0 px-4 py-1 bg-orange-50">
+                            <span className="text-xs text-orange-500 font-semibold">🔧 Vedlikehold</span>
+                          </td></tr>
+                          {maintenanceTasks.map((task) => {
+                            const d = new Date(task.due_date + "T00:00:00");
+                            const ty = d.getFullYear(); const tm = d.getMonth() + 1;
+                            return (
+                              <tr key={task.id} className="border-b border-gray-100 hover:bg-orange-50/40">
+                                <td className="sticky left-0 bg-gray-50 px-4 py-1.5" style={{ minWidth: "200px" }}>
+                                  <div className="text-sm text-gray-700 truncate">{task.asset_name}</div>
+                                  <div className="text-xs text-gray-400 truncate">{task.title}</div>
+                                </td>
+                                {monthCols.map((col) => {
+                                  const hit = col.year === ty && col.month === tm;
+                                  return <td key={`${task.id}-${col.year}-${col.month}`} className={`text-right px-2 py-1.5 text-sm ${col.isCurrent ? "bg-gray-100" : ""} ${hit ? "text-orange-600 font-medium" : "text-gray-300"}`}>{hit ? task.estimated_cost.toLocaleString("nb-NO") : "–"}</td>;
+                                })}
+                                <td className="text-right px-2 py-1.5 text-sm text-gray-400">{ty === currentYear ? task.estimated_cost.toLocaleString("nb-NO") : "–"}</td>
+                              </tr>
+                            );
+                          })}
+                        </>
+                      )}
+
+                      {/* Planlagte */}
+                      {plannedExpenses.length > 0 && (
+                        <>
+                          <tr><td colSpan={numCols} className="sticky left-0 px-4 py-1 bg-violet-50">
+                            <span className="text-xs text-violet-500 font-semibold">📅 Planlagte kostnader</span>
+                          </td></tr>
+                          {plannedExpenses.map((expense) => {
+                            const d = new Date(expense.date + "T00:00:00");
+                            const ey = d.getFullYear(); const em = d.getMonth() + 1;
+                            return (
+                              <tr key={expense.id} className="border-b border-gray-100 hover:bg-violet-50/40">
+                                <td className="sticky left-0 bg-gray-50 px-4 py-1.5" style={{ minWidth: "200px" }}>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-sm">{CAT_EMOJI[expense.category] ?? "📦"}</span>
+                                    <span className="text-sm text-gray-700 truncate">{expense.title}</span>
+                                  </div>
+                                  {expense.notes && <div className="text-xs text-gray-400 truncate ml-6">{expense.notes}</div>}
+                                </td>
+                                {monthCols.map((col) => {
+                                  const hit = col.year === ey && col.month === em;
+                                  return <td key={`${expense.id}-${col.year}-${col.month}`} className={`text-right px-2 py-1.5 text-sm ${col.isCurrent ? "bg-gray-100" : ""} ${hit ? "text-violet-600 font-medium" : "text-gray-300"}`}>{hit ? expense.amount.toLocaleString("nb-NO") : "–"}</td>;
+                                })}
+                                <td className="text-right px-2 py-1.5 text-sm text-gray-400">{ey === currentYear ? expense.amount.toLocaleString("nb-NO") : "–"}</td>
+                              </tr>
+                            );
+                          })}
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  {/* Kombinert sumrad */}
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <td className="sticky left-0 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">
+                      Sum engangsutgifter
+                    </td>
+                    {monthCols.map((col) => {
+                      const total = getMaintenanceMonthTotal(col.year, col.month) + getPlannedMonthTotal(col.year, col.month);
+                      return (
+                        <td key={`one-sum-${col.year}-${col.month}`} className={`text-right px-2 py-2 text-sm font-semibold ${total > 0 ? "text-gray-800" : "text-gray-300"} ${col.isCurrent ? "bg-gray-100" : ""}`}>
+                          {total > 0 ? total.toLocaleString("nb-NO") : "–"}
+                        </td>
+                      );
+                    })}
+                    <td className="text-right px-2 py-2 text-sm font-semibold text-gray-700">
+                      {(getMaintenanceAnnualTotal() + getPlannedAnnualTotal()) > 0
+                        ? (getMaintenanceAnnualTotal() + getPlannedAnnualTotal()).toLocaleString("nb-NO") : "–"}
+                    </td>
+                  </tr>
+
+                  {/* Anbefalt avsetning */}
+                  {rec > 0 && (
+                    <tr className="bg-blue-50 border-b border-blue-100">
+                      <td className="sticky left-0 bg-blue-50 px-4 py-2">
+                        <div className="text-sm font-semibold text-blue-700">📊 Anbefalt avsetning</div>
+                        <div className="text-xs text-blue-400 mt-0.5">Basert på forventede kostnader neste 12 mnd</div>
                       </td>
-                      {monthCols.map((col) => {
-                        const isThisMonth = col.year === expYear && col.month === expMonth;
-                        return (
-                          <td key={`${expense.id}-${col.year}-${col.month}`}
-                            className={`text-right px-2 py-1.5 text-sm ${col.isCurrent ? "bg-gray-100" : ""} ${isThisMonth ? "text-violet-600 font-medium" : "text-gray-300"}`}>
-                            {isThisMonth ? expense.amount.toLocaleString("nb-NO") : "–"}
-                          </td>
-                        );
-                      })}
-                      <td className="text-right px-2 py-1.5 text-sm text-gray-400">
-                        {expYear === currentYear ? expense.amount.toLocaleString("nb-NO") : "–"}
+                      {monthCols.map((col) => (
+                        <td key={`rec-${col.year}-${col.month}`} className={`text-right px-2 py-2 text-sm font-semibold text-blue-600 ${col.isCurrent ? "bg-blue-100" : ""}`}>
+                          {rec.toLocaleString("nb-NO")}
+                        </td>
+                      ))}
+                      <td className="text-right px-2 py-2 text-sm font-semibold text-blue-600">
+                        {(rec * 12).toLocaleString("nb-NO")}
                       </td>
                     </tr>
-                  );
-                })}
-                <tr className="bg-violet-50 border-b border-gray-200">
-                  <td className="sticky left-0 bg-violet-100 px-4 py-2 text-sm font-semibold text-violet-700">
-                    Sum planlagte
-                  </td>
-                  {monthCols.map((col) => {
-                    const total = getPlannedMonthTotal(col.year, col.month);
-                    return (
-                      <td key={`planned-sum-${col.year}-${col.month}`}
-                        className={`text-right px-2 py-2 text-sm font-semibold ${total > 0 ? "text-violet-600" : "text-gray-300"} ${col.isCurrent ? "bg-violet-50" : ""}`}>
-                        {total > 0 ? total.toLocaleString("nb-NO") : "–"}
-                      </td>
-                    );
-                  })}
-                  <td className="text-right px-2 py-2 text-sm font-semibold text-violet-600">
-                    {getPlannedAnnualTotal() > 0 ? getPlannedAnnualTotal().toLocaleString("nb-NO") : "–"}
-                  </td>
-                </tr>
-              </>
-            )}
+                  )}
+                </>
+              );
+            })()}
 
             {/* Spacer 2 */}
             <tr><td colSpan={numCols} className="py-1" /></tr>

@@ -80,9 +80,11 @@ export default function PlannedExpensesView({ initialExpenses }: { initialExpens
     setExpenses((prev) => prev.filter((e) => e.id !== id));
   };
 
+  // Filtrer ut innkjøp-kategorien – den administreres i Innkjøp-modulen
+  const relevantExpenses = expenses.filter((e) => e.category !== "innkjop");
   const filtered = activeCategory === "alle"
-    ? expenses
-    : expenses.filter((e) => e.category === activeCategory);
+    ? relevantExpenses
+    : relevantExpenses.filter((e) => e.category === activeCategory);
 
   // Grupper per måned
   const grouped: Record<string, Expense[]> = {};
