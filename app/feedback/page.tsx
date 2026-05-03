@@ -29,10 +29,6 @@ export default function FeedbackPage() {
   const [submitted, setSubmitted] = useState(false);
   const [agreed, setAgreed] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    fetchFeedback();
-  }, []);
-
   const fetchFeedback = async () => {
     const { data } = await supabase
       .from("feedback")
@@ -42,6 +38,12 @@ export default function FeedbackPage() {
     setFeedbacks(data ?? []);
     setLoading(false);
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchFeedback();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async () => {
     if (!name.trim() || !message.trim()) return;

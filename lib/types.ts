@@ -26,6 +26,11 @@ export type FamilyMember = {
   name: string;
   role: string;
   color: string;
+  birth_date: string | null;
+  phone: string | null;
+  email: string | null;
+  permission_level: string; // "admin" | "member"
+  pin: string | null;
   created_at: string;
 };
 

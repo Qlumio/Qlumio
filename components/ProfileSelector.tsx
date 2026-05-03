@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { FamilyMember } from "@/lib/types";
 import { useUser } from "@/lib/userContext";
 
@@ -94,9 +95,9 @@ export default function ProfileSelector({ members }: Props) {
         {members.length === 0 ? (
           <p className="text-center text-gray-400 text-sm">
             Ingen familiemedlemmer lagt til ennå.{" "}
-            <a href="/innstillinger" className="text-blue-500 underline">
+            <Link href="/innstillinger" className="text-blue-500 underline">
               Gå til innstillinger
-            </a>
+            </Link>
           </p>
         ) : (
           <div className="space-y-3">

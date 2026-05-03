@@ -106,6 +106,14 @@ export default function BudgetView({ categories: initialCategories, overrides: i
   });
 
   const [showOneTimeDetails, setShowOneTimeDetails] = useState(false);
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
+
+  const toggleCat = (id: string) =>
+    setExpandedCats((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   // Redigering av celleverdier
   const [editKey, setEditKey] = useState<string | null>(null);
@@ -330,137 +338,148 @@ export default function BudgetView({ categories: initialCategories, overrides: i
             </tr>
           </thead>
           <tbody>
-            {categories.map((cat) => (
+            {categories.map((cat) => {
+              const isExpanded = expandedCats.has(cat.id);
+              return (
               <React.Fragment key={cat.id}>
-                {/* Kategori-header */}
-                <tr key={`hdr-${cat.id}`}>
-                  <td colSpan={numCols} className="sticky left-0 bg-white px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-t-2 border-gray-200">
-                    {cat.name}
-                  </td>
-                </tr>
-
-                {/* Poster */}
-                {cat.items.map((item) => (
-                  <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50 group">
-                    <td className="sticky left-0 bg-gray-50 group-hover:bg-gray-50 px-4 py-1.5" style={{ minWidth: "200px" }}>
-                      {editNameId === item.id ? (
-                        <input
-                          type="text"
-                          value={editNameValue}
-                          onChange={(e) => setEditNameValue(e.target.value)}
-                          onBlur={() => saveItemName(item.id, cat.id)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveItemName(item.id, cat.id);
-                            if (e.key === "Escape") setEditNameId(null);
-                          }}
-                          autoFocus
-                          className="w-full bg-gray-100 rounded px-2 py-0.5 text-sm outline-none ring-1 ring-blue-500"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm text-gray-700">{item.name}</span>
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                            <button onClick={() => startEditName(item)} className="text-gray-400 hover:text-blue-500 transition-colors p-0.5" title="Endre navn">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                              </svg>
-                            </button>
-                            <button onClick={() => deleteItem(item.id, cat.id)} className="text-gray-400 hover:text-red-500 transition-colors p-0.5" title="Slett post">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </td>
-                    {monthCols.map((col) => {
-                      const cellKey = `${item.id}-${col.year}-${col.month}`;
-                      const val = getVal(item.id, col.year, col.month);
-                      const isOvr = hasOverride(item.id, col.year, col.month);
-                      return (
-                        <td
-                          key={cellKey}
-                          className={[
-                            "text-right px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-200 transition-colors",
-                            col.isCurrent ? "bg-gray-100" : "",
-                            col.isPast ? "text-gray-500" : "",
-                            isOvr ? "text-blue-600" : "",
-                          ].filter(Boolean).join(" ")}
-                          onClick={() => editKey !== cellKey && (setEditKey(cellKey), setEditValue(val === 0 ? "" : String(val)))}
-                        >
-                          {editKey === cellKey ? (
-                            <input
-                              type="number"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onBlur={() => saveCell(item.id, col.year, col.month)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") saveCell(item.id, col.year, col.month);
-                                if (e.key === "Escape") setEditKey(null);
-                              }}
-                              autoFocus
-                              className="w-full text-right bg-blue-100 rounded px-1 outline-none ring-1 ring-blue-500 text-sm"
-                              style={{ maxWidth: "72px" }}
-                            />
-                          ) : (
-                            <span className={isOvr ? "underline decoration-dotted" : ""}>{fmt(val)}</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className="text-right px-2 py-1.5 text-sm text-gray-400">{fmt(getAnnualTotal(item.id))}</td>
-                  </tr>
-                ))}
-
-                {/* Legg til post */}
-                <tr key={`add-${cat.id}`} className="border-b border-gray-200">
-                  <td colSpan={numCols} className="sticky left-0 px-4 py-1.5">
-                    {addingToCatId === cat.id ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="Navn på ny post…"
-                          value={newItemName}
-                          onChange={(e) => setNewItemName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") addItem(cat.id);
-                            if (e.key === "Escape") { setAddingToCatId(null); setNewItemName(""); }
-                          }}
-                          autoFocus
-                          className="bg-gray-100 rounded px-2 py-1 text-sm outline-none ring-1 ring-blue-500 w-48"
-                        />
-                        <button onClick={() => addItem(cat.id)} className="text-xs text-blue-500 hover:text-blue-600">Legg til</button>
-                        <button onClick={() => { setAddingToCatId(null); setNewItemName(""); }} className="text-xs text-gray-400 hover:text-gray-700">Avbryt</button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => { setAddingToCatId(cat.id); setNewItemName(""); }}
-                        className="text-xs text-gray-400 hover:text-gray-500 transition-colors flex items-center gap-1"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                        </svg>
-                        Legg til post
-                      </button>
-                    )}
-                  </td>
-                </tr>
-
-                {/* Kategori-sum */}
-                <tr key={`sum-${cat.id}`} className="bg-gray-50 border-b border-gray-200">
-                  <td className="sticky left-0 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-800">
-                    Sum {cat.name}
+                {/* Kategori-header – klikk for å ekspandere */}
+                <tr
+                  onClick={() => toggleCat(cat.id)}
+                  className="cursor-pointer hover:bg-gray-50 border-t-2 border-gray-200 group"
+                >
+                  <td className="sticky left-0 bg-white group-hover:bg-gray-50 px-4 py-2.5 transition-colors" style={{ minWidth: "200px" }}>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-gray-400 text-xs transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{cat.name}</span>
+                      <span className="text-xs text-gray-300">{cat.items.length} poster</span>
+                    </div>
                   </td>
                   {monthCols.map((col) => (
-                    <td key={`${cat.id}-s-${col.year}-${col.month}`} className={`text-right px-2 py-2 text-sm font-semibold ${col.isCurrent ? "text-gray-900" : "text-gray-700"}`}>
+                    <td key={`${cat.id}-s-${col.year}-${col.month}`}
+                      className={`text-right px-2 py-2.5 text-sm font-semibold ${col.isCurrent ? "text-gray-900 bg-gray-100" : "text-gray-700"}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {fmt(getCatMonthTotal(cat, col.year, col.month))}
                     </td>
                   ))}
-                  <td className="text-right px-2 py-2 text-sm font-semibold text-gray-700">{fmt(getCatAnnualTotal(cat))}</td>
+                  <td className="text-right px-2 py-2.5 text-sm font-semibold text-gray-500"
+                    onClick={(e) => e.stopPropagation()}>
+                    {fmt(getCatAnnualTotal(cat))}
+                  </td>
                 </tr>
+
+                {/* Detaljer – kun synlig når ekspandert */}
+                {isExpanded && (
+                  <>
+                    {cat.items.map((item) => (
+                      <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50 group">
+                        <td className="sticky left-0 bg-gray-50 group-hover:bg-gray-50 px-4 py-1.5 pl-8" style={{ minWidth: "200px" }}>
+                          {editNameId === item.id ? (
+                            <input
+                              type="text"
+                              value={editNameValue}
+                              onChange={(e) => setEditNameValue(e.target.value)}
+                              onBlur={() => saveItemName(item.id, cat.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveItemName(item.id, cat.id);
+                                if (e.key === "Escape") setEditNameId(null);
+                              }}
+                              autoFocus
+                              className="w-full bg-gray-100 rounded px-2 py-0.5 text-sm outline-none ring-1 ring-blue-500"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm text-gray-600">{item.name}</span>
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                <button onClick={() => startEditName(item)} className="text-gray-400 hover:text-blue-500 transition-colors p-0.5" title="Endre navn">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </button>
+                                <button onClick={() => deleteItem(item.id, cat.id)} className="text-gray-400 hover:text-red-500 transition-colors p-0.5" title="Slett post">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                        {monthCols.map((col) => {
+                          const cellKey = `${item.id}-${col.year}-${col.month}`;
+                          const val = getVal(item.id, col.year, col.month);
+                          const isOvr = hasOverride(item.id, col.year, col.month);
+                          return (
+                            <td key={cellKey}
+                              className={[
+                                "text-right px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-200 transition-colors",
+                                col.isCurrent ? "bg-gray-100" : "",
+                                isOvr ? "text-blue-600" : "",
+                              ].filter(Boolean).join(" ")}
+                              onClick={() => editKey !== cellKey && (setEditKey(cellKey), setEditValue(val === 0 ? "" : String(val)))}
+                            >
+                              {editKey === cellKey ? (
+                                <input
+                                  type="number"
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  onBlur={() => saveCell(item.id, col.year, col.month)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") saveCell(item.id, col.year, col.month);
+                                    if (e.key === "Escape") setEditKey(null);
+                                  }}
+                                  autoFocus
+                                  className="w-full text-right bg-blue-100 rounded px-1 outline-none ring-1 ring-blue-500 text-sm"
+                                  style={{ maxWidth: "72px" }}
+                                />
+                              ) : (
+                                <span className={isOvr ? "underline decoration-dotted" : ""}>{fmt(val)}</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                        <td className="text-right px-2 py-1.5 text-sm text-gray-400">{fmt(getAnnualTotal(item.id))}</td>
+                      </tr>
+                    ))}
+
+                    {/* Legg til post */}
+                    <tr className="border-b border-gray-200">
+                      <td colSpan={numCols} className="sticky left-0 px-4 py-1.5 pl-8 bg-gray-50">
+                        {addingToCatId === cat.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              placeholder="Navn på ny post…"
+                              value={newItemName}
+                              onChange={(e) => setNewItemName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") addItem(cat.id);
+                                if (e.key === "Escape") { setAddingToCatId(null); setNewItemName(""); }
+                              }}
+                              autoFocus
+                              className="bg-gray-100 rounded px-2 py-1 text-sm outline-none ring-1 ring-blue-500 w-48"
+                            />
+                            <button onClick={() => addItem(cat.id)} className="text-xs text-blue-500 hover:text-blue-600">Legg til</button>
+                            <button onClick={() => { setAddingToCatId(null); setNewItemName(""); }} className="text-xs text-gray-400 hover:text-gray-700">Avbryt</button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setAddingToCatId(cat.id); setNewItemName(""); }}
+                            className="text-xs text-gray-400 hover:text-gray-500 transition-colors flex items-center gap-1"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Legg til post
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  </>
+                )}
               </React.Fragment>
-            ))}
+              );
+            })}
 
             {/* Spacer */}
             <tr><td colSpan={numCols} className="py-2" /></tr>

@@ -169,7 +169,7 @@ export default function LFPView({ insurances: init_i, loans: init_l, pensions: i
 
   // ─── Export content ──────────────────────────────────────────────────────────
 
-  const ExportContent = () => {
+  const renderExportContent = () => {
     const today = new Date().toLocaleDateString("nb-NO");
     if (activeTab === "forsikring") return (
       <div className="text-slate-900">
@@ -465,7 +465,7 @@ export default function LFPView({ insurances: init_i, loans: init_l, pensions: i
       {showExport && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowExport(false)}>
           <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <ExportContent />
+            {renderExportContent()}
             <div className="flex gap-2 mt-6 border-t pt-4">
               <button onClick={() => setShowExport(false)} className="flex-1 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors text-sm text-slate-700">Lukk</button>
               <button onClick={() => window.print()} className="flex-1 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors text-sm font-medium">
