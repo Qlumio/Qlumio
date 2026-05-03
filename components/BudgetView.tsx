@@ -221,44 +221,44 @@ export default function BudgetView({ categories: initialCategories, overrides: i
   const numCols = monthCols.length + 2;
 
   return (
-    <main className="min-h-screen bg-slate-900 text-white">
+    <main className="min-h-screen bg-gray-50 text-gray-900">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+      <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-slate-800"
+            className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
             Hjem
           </Link>
-          <div className="w-px h-5 bg-slate-700" />
+          <div className="w-px h-5 bg-gray-100" />
           <h1 className="text-lg font-semibold">Familie økonomi</h1>
         </div>
-        <span className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">{currentYear}</span>
+        <span className="text-xs text-gray-400 bg-white px-2 py-1 rounded">{currentYear}</span>
       </div>
 
-      <p className="px-4 py-2 text-xs text-slate-500">
+      <p className="px-4 py-2 text-xs text-gray-400">
         Klikk et beløp for å redigere. Første verdi du setter på en post gjelder alle måneder.{" "}
-        <span className="text-blue-400">Blå tall</span> er månedlige unntak.
+        <span className="text-blue-500">Blå tall</span> er månedlige unntak.
       </p>
 
       <div className="overflow-x-auto">
         <table className="w-full border-collapse" style={{ minWidth: "640px" }}>
           <thead>
-            <tr className="border-b border-slate-700">
-              <th className="sticky left-0 z-10 bg-slate-900 text-left px-4 py-2 text-xs text-slate-500 uppercase tracking-wide font-medium" style={{ minWidth: "200px" }}>
+            <tr className="border-b border-gray-200">
+              <th className="sticky left-0 z-10 bg-gray-50 text-left px-4 py-2 text-xs text-gray-400 uppercase tracking-wide font-medium" style={{ minWidth: "200px" }}>
                 Post
               </th>
               {monthCols.map((col) => (
-                <th key={`${col.year}-${col.month}`} className={`text-right px-2 py-2 text-xs uppercase tracking-wide font-medium ${col.isCurrent ? "text-blue-400" : "text-slate-500"}`} style={{ minWidth: "80px" }}>
+                <th key={`${col.year}-${col.month}`} className={`text-right px-2 py-2 text-xs uppercase tracking-wide font-medium ${col.isCurrent ? "text-blue-500" : "text-gray-400"}`} style={{ minWidth: "80px" }}>
                   {col.label}
-                  {col.year !== currentYear && <span className="block text-[10px] text-slate-600">{col.year}</span>}
+                  {col.year !== currentYear && <span className="block text-[10px] text-gray-400">{col.year}</span>}
                 </th>
               ))}
-              <th className="text-right px-2 py-2 text-xs text-slate-500 uppercase tracking-wide font-medium" style={{ minWidth: "80px" }}>År</th>
+              <th className="text-right px-2 py-2 text-xs text-gray-400 uppercase tracking-wide font-medium" style={{ minWidth: "80px" }}>År</th>
             </tr>
           </thead>
           <tbody>
@@ -266,15 +266,15 @@ export default function BudgetView({ categories: initialCategories, overrides: i
               <React.Fragment key={cat.id}>
                 {/* Kategori-header */}
                 <tr key={`hdr-${cat.id}`}>
-                  <td colSpan={numCols} className="sticky left-0 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-t-2 border-slate-700">
+                  <td colSpan={numCols} className="sticky left-0 bg-white px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider border-t-2 border-gray-200">
                     {cat.name}
                   </td>
                 </tr>
 
                 {/* Poster */}
                 {cat.items.map((item) => (
-                  <tr key={item.id} className="border-b border-slate-800/40 hover:bg-slate-800/20 group">
-                    <td className="sticky left-0 bg-slate-900 group-hover:bg-slate-800/40 px-4 py-1.5" style={{ minWidth: "200px" }}>
+                  <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50 group">
+                    <td className="sticky left-0 bg-gray-50 group-hover:bg-gray-50 px-4 py-1.5" style={{ minWidth: "200px" }}>
                       {editNameId === item.id ? (
                         <input
                           type="text"
@@ -286,18 +286,18 @@ export default function BudgetView({ categories: initialCategories, overrides: i
                             if (e.key === "Escape") setEditNameId(null);
                           }}
                           autoFocus
-                          className="w-full bg-slate-700 rounded px-2 py-0.5 text-sm outline-none ring-1 ring-blue-500"
+                          className="w-full bg-gray-100 rounded px-2 py-0.5 text-sm outline-none ring-1 ring-blue-500"
                         />
                       ) : (
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm text-slate-300">{item.name}</span>
+                          <span className="text-sm text-gray-700">{item.name}</span>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                            <button onClick={() => startEditName(item)} className="text-slate-500 hover:text-blue-400 transition-colors p-0.5" title="Endre navn">
+                            <button onClick={() => startEditName(item)} className="text-gray-400 hover:text-blue-500 transition-colors p-0.5" title="Endre navn">
                               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                               </svg>
                             </button>
-                            <button onClick={() => deleteItem(item.id, cat.id)} className="text-slate-500 hover:text-red-400 transition-colors p-0.5" title="Slett post">
+                            <button onClick={() => deleteItem(item.id, cat.id)} className="text-gray-400 hover:text-red-500 transition-colors p-0.5" title="Slett post">
                               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
@@ -314,10 +314,10 @@ export default function BudgetView({ categories: initialCategories, overrides: i
                         <td
                           key={cellKey}
                           className={[
-                            "text-right px-2 py-1.5 text-sm cursor-pointer hover:bg-slate-700/60 transition-colors",
-                            col.isCurrent ? "bg-slate-700/20" : "",
-                            col.isPast ? "text-slate-400" : "",
-                            isOvr ? "text-blue-300" : "",
+                            "text-right px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-200 transition-colors",
+                            col.isCurrent ? "bg-gray-100" : "",
+                            col.isPast ? "text-gray-500" : "",
+                            isOvr ? "text-blue-600" : "",
                           ].filter(Boolean).join(" ")}
                           onClick={() => editKey !== cellKey && (setEditKey(cellKey), setEditValue(val === 0 ? "" : String(val)))}
                         >
@@ -332,7 +332,7 @@ export default function BudgetView({ categories: initialCategories, overrides: i
                                 if (e.key === "Escape") setEditKey(null);
                               }}
                               autoFocus
-                              className="w-full text-right bg-blue-900/40 rounded px-1 outline-none ring-1 ring-blue-500 text-sm"
+                              className="w-full text-right bg-blue-100 rounded px-1 outline-none ring-1 ring-blue-500 text-sm"
                               style={{ maxWidth: "72px" }}
                             />
                           ) : (
@@ -341,12 +341,12 @@ export default function BudgetView({ categories: initialCategories, overrides: i
                         </td>
                       );
                     })}
-                    <td className="text-right px-2 py-1.5 text-sm text-slate-500">{fmt(getAnnualTotal(item.id))}</td>
+                    <td className="text-right px-2 py-1.5 text-sm text-gray-400">{fmt(getAnnualTotal(item.id))}</td>
                   </tr>
                 ))}
 
                 {/* Legg til post */}
-                <tr key={`add-${cat.id}`} className="border-b border-slate-700">
+                <tr key={`add-${cat.id}`} className="border-b border-gray-200">
                   <td colSpan={numCols} className="sticky left-0 px-4 py-1.5">
                     {addingToCatId === cat.id ? (
                       <div className="flex items-center gap-2">
@@ -360,15 +360,15 @@ export default function BudgetView({ categories: initialCategories, overrides: i
                             if (e.key === "Escape") { setAddingToCatId(null); setNewItemName(""); }
                           }}
                           autoFocus
-                          className="bg-slate-700 rounded px-2 py-1 text-sm outline-none ring-1 ring-blue-500 w-48"
+                          className="bg-gray-100 rounded px-2 py-1 text-sm outline-none ring-1 ring-blue-500 w-48"
                         />
-                        <button onClick={() => addItem(cat.id)} className="text-xs text-blue-400 hover:text-blue-300">Legg til</button>
-                        <button onClick={() => { setAddingToCatId(null); setNewItemName(""); }} className="text-xs text-slate-500 hover:text-slate-300">Avbryt</button>
+                        <button onClick={() => addItem(cat.id)} className="text-xs text-blue-500 hover:text-blue-600">Legg til</button>
+                        <button onClick={() => { setAddingToCatId(null); setNewItemName(""); }} className="text-xs text-gray-400 hover:text-gray-700">Avbryt</button>
                       </div>
                     ) : (
                       <button
                         onClick={() => { setAddingToCatId(cat.id); setNewItemName(""); }}
-                        className="text-xs text-slate-600 hover:text-slate-400 transition-colors flex items-center gap-1"
+                        className="text-xs text-gray-400 hover:text-gray-500 transition-colors flex items-center gap-1"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -380,16 +380,16 @@ export default function BudgetView({ categories: initialCategories, overrides: i
                 </tr>
 
                 {/* Kategori-sum */}
-                <tr key={`sum-${cat.id}`} className="bg-slate-800/50 border-b border-slate-700">
-                  <td className="sticky left-0 bg-slate-800/70 px-4 py-2 text-sm font-semibold text-slate-200">
+                <tr key={`sum-${cat.id}`} className="bg-gray-50 border-b border-gray-200">
+                  <td className="sticky left-0 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-800">
                     Sum {cat.name}
                   </td>
                   {monthCols.map((col) => (
-                    <td key={`${cat.id}-s-${col.year}-${col.month}`} className={`text-right px-2 py-2 text-sm font-semibold ${col.isCurrent ? "text-white" : "text-slate-300"}`}>
+                    <td key={`${cat.id}-s-${col.year}-${col.month}`} className={`text-right px-2 py-2 text-sm font-semibold ${col.isCurrent ? "text-gray-900" : "text-gray-700"}`}>
                       {fmt(getCatMonthTotal(cat, col.year, col.month))}
                     </td>
                   ))}
-                  <td className="text-right px-2 py-2 text-sm font-semibold text-slate-300">{fmt(getCatAnnualTotal(cat))}</td>
+                  <td className="text-right px-2 py-2 text-sm font-semibold text-gray-700">{fmt(getCatAnnualTotal(cat))}</td>
                 </tr>
               </React.Fragment>
             ))}
@@ -398,17 +398,17 @@ export default function BudgetView({ categories: initialCategories, overrides: i
             <tr><td colSpan={numCols} className="py-2" /></tr>
 
             {/* Restbeløp */}
-            <tr className="border-t-2 border-emerald-500/40 bg-emerald-900/20">
-              <td className="sticky left-0 bg-emerald-900/20 px-4 py-3 text-sm font-bold text-white">Restbeløp</td>
+            <tr className="border-t-2 border-emerald-500/40 bg-emerald-50">
+              <td className="sticky left-0 bg-emerald-50 px-4 py-3 text-sm font-bold text-gray-900">Restbeløp</td>
               {monthCols.map((col) => {
                 const val = getRestMonth(col.year, col.month);
                 return (
-                  <td key={`rest-${col.year}-${col.month}`} className={`text-right px-2 py-3 text-sm font-bold ${val >= 0 ? "text-green-400" : "text-red-400"}`}>
+                  <td key={`rest-${col.year}-${col.month}`} className={`text-right px-2 py-3 text-sm font-bold ${val >= 0 ? "text-green-600" : "text-red-500"}`}>
                     {fmt(val)}
                   </td>
                 );
               })}
-              <td className={`text-right px-2 py-3 text-sm font-bold ${getRestAnnual() >= 0 ? "text-green-400" : "text-red-400"}`}>
+              <td className={`text-right px-2 py-3 text-sm font-bold ${getRestAnnual() >= 0 ? "text-green-600" : "text-red-500"}`}>
                 {fmt(getRestAnnual())}
               </td>
             </tr>

@@ -134,25 +134,25 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
   };
 
   return (
-    <main className="min-h-screen bg-slate-900 text-white p-6">
+    <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-slate-800"
+            className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
             Hjem
           </Link>
-          <div className="w-px h-5 bg-slate-700" />
+          <div className="w-px h-5 bg-gray-100" />
           <h1 className="text-lg font-semibold">Aktiviteter</h1>
         </div>
         <Link
           href="/innstillinger"
-          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-slate-800"
+          className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-white"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -165,7 +165,7 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
       {/* Ingen medlemmer */}
       {members.length === 0 && (
         <div className="text-center py-16">
-          <p className="text-slate-400 mb-4">Ingen familiemedlemmer lagt til ennå.</p>
+          <p className="text-gray-500 mb-4">Ingen familiemedlemmer lagt til ennå.</p>
           <Link
             href="/innstillinger"
             className="inline-block bg-blue-500 hover:bg-blue-600 text-white px-5 py-2 rounded-lg transition-colors"
@@ -179,21 +179,21 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
         <>
           {/* Uke-navigasjon */}
           <div className="flex items-center gap-3 mb-5">
-            <button onClick={() => navigate(-1)} className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 rounded transition-colors text-sm">
+            <button onClick={() => navigate(-1)} className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 rounded transition-colors text-sm">
               ← Forrige
             </button>
             <button
               onClick={() => navigate(0)}
               className={`px-4 py-1.5 rounded transition-colors text-sm font-medium ${
-                isCurrentWeek ? "bg-blue-500 text-white" : "bg-slate-700 hover:bg-slate-600"
+                isCurrentWeek ? "bg-blue-500 text-white" : "bg-gray-100 hover:bg-gray-200"
               }`}
             >
               Denne uken
             </button>
-            <button onClick={() => navigate(1)} className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 rounded transition-colors text-sm">
+            <button onClick={() => navigate(1)} className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 rounded transition-colors text-sm">
               Neste →
             </button>
-            <span className="ml-2 text-slate-500 text-sm">Uke {weekNumber}</span>
+            <span className="ml-2 text-gray-400 text-sm">Uke {weekNumber}</span>
           </div>
 
           {/* Ukesvisning */}
@@ -206,8 +206,8 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
                   const isToday = formatDate(date) === todayStr;
                   return (
                     <div key={i} className="text-center">
-                      <div className="text-xs text-slate-500 uppercase tracking-wide">{DAY_NAMES[i]}</div>
-                      <div className={`text-sm font-semibold mt-0.5 ${isToday ? "text-blue-400" : "text-slate-300"}`}>
+                      <div className="text-xs text-gray-400 uppercase tracking-wide">{DAY_NAMES[i]}</div>
+                      <div className={`text-sm font-semibold mt-0.5 ${isToday ? "text-blue-500" : "text-gray-700"}`}>
                         {date.getDate()}.{date.getMonth() + 1}
                       </div>
                     </div>
@@ -222,7 +222,7 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
                     <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${member.color}`} />
                     <div className="min-w-0">
                       <div className="font-medium truncate">{member.name}</div>
-                      <div className="text-xs text-slate-500 truncate">{member.role}</div>
+                      <div className="text-xs text-gray-400 truncate">{member.role}</div>
                     </div>
                   </div>
 
@@ -237,8 +237,8 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
                         onClick={() => setModalCell({ memberId: member.id, date: dateStr })}
                         className={`h-20 rounded p-1 text-xs cursor-pointer transition-colors overflow-hidden ${
                           isToday
-                            ? "bg-slate-700 ring-1 ring-blue-500 hover:bg-slate-600"
-                            : "bg-slate-800 hover:bg-slate-700"
+                            ? "bg-gray-100 ring-1 ring-blue-500 hover:bg-gray-200"
+                            : "bg-white hover:bg-gray-100"
                         }`}
                       >
                         {cellEvents.map((event) => (
@@ -248,7 +248,7 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
                               e.stopPropagation();
                               setActiveEvent({ event, date: dateStr });
                             }}
-                            className={`${member.color} rounded p-1 text-white mb-1 cursor-pointer hover:opacity-80 transition-opacity`}
+                            className={`${member.color} rounded p-1 text-gray-900 mb-1 cursor-pointer hover:opacity-80 transition-opacity`}
                           >
                             {(event.start_time || event.end_time) && (
                               <div className="text-[10px] opacity-80">

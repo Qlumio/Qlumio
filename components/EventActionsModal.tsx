@@ -28,20 +28,20 @@ export default function EventActionsModal({
       onClick={onClose}
     >
       <div
-        className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl"
+        className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="mb-4">
-          <p className="text-xs text-slate-500 mb-1">{dateDisplay}</p>
+          <p className="text-xs text-gray-400 mb-1">{dateDisplay}</p>
           <h2 className="text-lg font-semibold">{event.title}</h2>
           {(event.start_time || event.end_time) && (
-            <p className="text-sm text-slate-400 mt-0.5">
+            <p className="text-sm text-gray-500 mt-0.5">
               {event.start_time}{event.end_time && ` – ${event.end_time}`}
             </p>
           )}
           {event.recurring && (
-            <p className="text-xs text-blue-400 mt-1">↻ Gjentagende ukentlig</p>
+            <p className="text-xs text-blue-500 mt-1">↻ Gjentagende ukentlig</p>
           )}
         </div>
 
@@ -51,13 +51,13 @@ export default function EventActionsModal({
             <>
               <button
                 onClick={onDeleteSingle}
-                className="w-full py-2.5 px-4 rounded-lg bg-slate-700 hover:bg-red-900/40 hover:text-red-300 transition-colors text-sm text-left"
+                className="w-full py-2.5 px-4 rounded-lg bg-gray-100 hover:bg-red-900/40 hover:text-red-300 transition-colors text-sm text-left"
               >
                 🗑 Slett bare denne uken
               </button>
               <button
                 onClick={onDeleteAll}
-                className="w-full py-2.5 px-4 rounded-lg bg-slate-700 hover:bg-red-900/40 hover:text-red-300 transition-colors text-sm text-left"
+                className="w-full py-2.5 px-4 rounded-lg bg-gray-100 hover:bg-red-900/40 hover:text-red-300 transition-colors text-sm text-left"
               >
                 🗑 Slett alle forekomster
               </button>
@@ -65,7 +65,7 @@ export default function EventActionsModal({
           ) : (
             <button
               onClick={onDeleteAll}
-              className="w-full py-2.5 px-4 rounded-lg bg-slate-700 hover:bg-red-900/40 hover:text-red-300 transition-colors text-sm text-left"
+              className="w-full py-2.5 px-4 rounded-lg bg-gray-100 hover:bg-red-900/40 hover:text-red-300 transition-colors text-sm text-left"
             >
               🗑 Slett aktivitet
             </button>
@@ -74,7 +74,7 @@ export default function EventActionsModal({
 
         <button
           onClick={onClose}
-          className="w-full py-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors text-sm"
+          className="w-full py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-sm"
         >
           Avbryt
         </button>

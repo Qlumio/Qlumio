@@ -17,7 +17,7 @@ const modules = [
       </svg>
     ),
     available: true,
-    color: "text-blue-400",
+    color: "text-blue-500",
     bg: "bg-blue-500/10",
   },
   {
@@ -30,7 +30,7 @@ const modules = [
       </svg>
     ),
     available: true,
-    color: "text-emerald-400",
+    color: "text-emerald-600",
     bg: "bg-emerald-500/10",
   },
   {
@@ -43,7 +43,7 @@ const modules = [
       </svg>
     ),
     available: true,
-    color: "text-violet-400",
+    color: "text-violet-600",
     bg: "bg-violet-500/10",
   },
   {
@@ -56,7 +56,7 @@ const modules = [
       </svg>
     ),
     available: true,
-    color: "text-pink-400",
+    color: "text-pink-600",
     bg: "bg-pink-500/10",
   },
   {
@@ -68,25 +68,25 @@ const modules = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
       </svg>
     ),
-    available: false,
-    color: "text-amber-400",
+    available: true,
+    color: "text-amber-600",
     bg: "bg-amber-500/10",
   },
 ];
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-slate-900 text-white p-6">
+    <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-10 pt-4">
           <div>
             <h1 className="text-3xl font-bold">Qlumio</h1>
-            <p className="text-slate-400 text-sm mt-0.5">Less Chaos, more family time</p>
+            <p className="text-gray-500 text-sm mt-0.5">Less Chaos, more family time</p>
           </div>
           <Link
             href="/innstillinger"
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-slate-800"
+            className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors text-sm px-3 py-1.5 rounded-lg hover:bg-white"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -103,23 +103,23 @@ export default function Home() {
               <Link
                 key={mod.href}
                 href={mod.href}
-                className="flex items-center gap-4 p-5 bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors group"
+                className="flex items-center gap-4 p-5 bg-white hover:bg-gray-100 rounded-xl transition-colors group"
               >
                 <div className={`${mod.bg} ${mod.color} p-3 rounded-xl flex-shrink-0`}>
                   {mod.icon}
                 </div>
                 <div className="min-w-0">
-                  <div className="font-semibold group-hover:text-white transition-colors">{mod.title}</div>
-                  <div className="text-sm text-slate-400 mt-0.5">{mod.description}</div>
+                  <div className="font-semibold group-hover:text-gray-900 transition-colors">{mod.title}</div>
+                  <div className="text-sm text-gray-500 mt-0.5">{mod.description}</div>
                 </div>
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-slate-600 group-hover:text-slate-400 ml-auto flex-shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-gray-400 group-hover:text-gray-500 ml-auto flex-shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
             ) : (
               <div
                 key={mod.href}
-                className="flex items-center gap-4 p-5 bg-slate-800/50 rounded-xl opacity-50 cursor-not-allowed"
+                className="flex items-center gap-4 p-5 bg-gray-50 rounded-xl opacity-50 cursor-not-allowed"
               >
                 <div className={`${mod.bg} ${mod.color} p-3 rounded-xl flex-shrink-0`}>
                   {mod.icon}
@@ -127,9 +127,9 @@ export default function Home() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">{mod.title}</span>
-                    <span className="text-[10px] bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full uppercase tracking-wide">Kommer snart</span>
+                    <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full uppercase tracking-wide">Kommer snart</span>
                   </div>
-                  <div className="text-sm text-slate-400 mt-0.5">{mod.description}</div>
+                  <div className="text-sm text-gray-500 mt-0.5">{mod.description}</div>
                 </div>
               </div>
             )

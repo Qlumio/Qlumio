@@ -65,19 +65,19 @@ export default function MemberSettings({ members }: Props) {
             {members.map((member) => (
               <div
                 key={member.id}
-                className="flex items-center justify-between bg-slate-800 rounded-lg px-4 py-3"
+                className="flex items-center justify-between bg-white rounded-lg px-4 py-3"
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-3 h-3 rounded-full ${member.color}`} />
                   <div>
                     <div className="font-medium">{member.name}</div>
-                    <div className="text-xs text-slate-500">{member.role}</div>
+                    <div className="text-xs text-gray-400">{member.role}</div>
                   </div>
                 </div>
                 <button
                   onClick={() => deleteMember(member.id)}
                   disabled={deleting === member.id}
-                  className="text-slate-500 hover:text-red-400 transition-colors text-sm disabled:opacity-50"
+                  className="text-gray-400 hover:text-red-500 transition-colors text-sm disabled:opacity-50"
                 >
                   {deleting === member.id ? "Sletter..." : "Slett"}
                 </button>
@@ -90,19 +90,19 @@ export default function MemberSettings({ members }: Props) {
       {/* Legg til nytt medlem */}
       <div>
         <h2 className="text-lg font-medium mb-3">Legg til familiemedlem</h2>
-        <div className="bg-slate-800 p-4 rounded-xl">
+        <div className="bg-white p-4 rounded-xl">
           <input
             type="text"
             placeholder="Navn"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addMember()}
-            className="w-full mb-2 p-2 rounded bg-slate-700 placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full mb-2 p-2 rounded bg-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500"
           />
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            className="w-full mb-3 p-2 rounded bg-slate-700 outline-none"
+            className="w-full mb-3 p-2 rounded bg-gray-100 outline-none"
           >
             <option value="parent">Forelder</option>
             <option value="child">Barn</option>
@@ -118,7 +118,7 @@ export default function MemberSettings({ members }: Props) {
           <button
             onClick={addMember}
             disabled={saving || !name.trim()}
-            className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50 p-2 rounded font-medium transition-colors"
+            className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50 p-2 rounded font-medium transition-colors text-white"
           >
             {saving ? "Lagrer..." : "Legg til"}
           </button>
