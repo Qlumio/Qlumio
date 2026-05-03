@@ -1,37 +1,36 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import type { FamilyMember, Event } from "@/lib/types";
-import { getMondayOfWeek, getWeekDates, formatDate } from "@/lib/dates";
+import type { FamilyMember, Event, EventException } from "@/lib/types";
+import { getMondayOfWeek, getWeekDates, formatDate, getWeekNumber } from "@/lib/dates";
+import EventModal from "@/components/EventModal";
+import EventActionsModal from "@/components/EventActionsModal";
 
 const DAY_NAMES = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
 
-type ActiveCell = { memberId: string; date: string } | null;
+type ModalCell = { memberId: string; date: string } | null;
+type ActiveEvent = { event: Event; date: string } | null;
 
 type Props = {
   members: FamilyMember[];
   events: Event[];
+  exceptions: EventException[];
   currentMonday: string;
 };
 
-export default function WeekGrid({ members, events, currentMonday }: Props) {
+export default function WeekGrid({ members, events, exceptions, currentMonday }: Props) {
   const router = useRouter();
-  const [activeCell, setActiveCell] = useState<ActiveCell>(null);
-  const [inputValue, setInputValue] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [modalCell, setModalCell] = useState<ModalCell>(null);
+  const [activeEvent, setActiveEvent] = useState<ActiveEvent>(null);
 
   const monday = new Date(currentMonday + "T00:00:00");
   const weekDates = getWeekDates(monday);
   const todayStr = formatDate(new Date());
-  const isCurrentWeek =
-    formatDate(getMondayOfWeek(new Date())) === currentMonday;
-
-  useEffect(() => {
-    if (activeCell) inputRef.current?.focus();
-  }, [activeCell]);
+  const weekNumber = getWeekNumber(monday);
+  const isCurrentWeek = formatDate(getMondayOfWeek(new Date())) === currentMonday;
 
   const navigate = (direction: -1 | 0 | 1) => {
     if (direction === 0) {
@@ -43,44 +42,95 @@ export default function WeekGrid({ members, events, currentMonday }: Props) {
     router.push(`?week=${formatDate(newMonday)}`);
   };
 
-  const openCell = (memberId: string, date: string) => {
-    setActiveCell({ memberId, date });
-    setInputValue("");
+  // Finn events for et gitt familiemedlem på en gitt dato
+  const getEventsForCell = (memberId: string, dateStr: string): Event[] => {
+    const cellDate = new Date(dateStr + "T00:00:00");
+    return events.filter((e) => {
+      if (!e.participant_ids.includes(memberId)) return false;
+      if (!e.recurring) return e.date === dateStr;
+      // Gjentagende: vis på samme ukedag, men ikke hvis det finnes et unntak
+      const eventDayOfWeek = new Date(e.date + "T00:00:00").getDay();
+      if (cellDate.getDay() !== eventDayOfWeek) return false;
+      const hasException = exceptions.some(
+        (ex) => ex.event_id === e.id && ex.date === dateStr
+      );
+      return !hasException;
+    });
   };
 
-  const saveEvent = async () => {
-    if (!activeCell || !inputValue.trim()) {
-      setActiveCell(null);
+  // Lagre ny event
+  const handleSaveEvent = async (data: {
+    title: string;
+    start_time: string | null;
+    end_time: string | null;
+    recurring: boolean;
+    participant_ids: string[];
+  }) => {
+    if (!modalCell) return;
+
+    const { data: event, error: eventError } = await supabase
+      .from("events")
+      .insert({
+        title: data.title,
+        date: modalCell.date,
+        start_time: data.start_time,
+        end_time: data.end_time,
+        recurring: data.recurring,
+      })
+      .select()
+      .single();
+
+    if (eventError || !event) {
+      alert("Feil ved lagring: " + eventError?.message);
       return;
     }
 
-    const input = inputValue.trim();
-    const timeMatch = input.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
-    let title = input;
-    let start_time = null;
-    let end_time = null;
+    const { error: participantsError } = await supabase
+      .from("event_participants")
+      .insert(
+        data.participant_ids.map((id) => ({
+          event_id: event.id,
+          family_member_id: id,
+        }))
+      );
 
-    if (timeMatch) {
-      start_time = timeMatch[1];
-      end_time = timeMatch[2];
-      title = input.replace(timeMatch[0], "").trim() || "Aktivitet";
+    if (participantsError) {
+      alert("Feil: " + participantsError.message);
+      return;
     }
 
-    const { error } = await supabase.from("events").insert({
-      family_member_id: activeCell.memberId,
-      date: activeCell.date,
-      title,
-      start_time,
-      end_time,
+    setModalCell(null);
+    router.refresh();
+  };
+
+  // Slett bare denne uken (legg til unntak)
+  const handleDeleteSingle = async () => {
+    if (!activeEvent) return;
+    const { error } = await supabase.from("event_exceptions").insert({
+      event_id: activeEvent.event.id,
+      date: activeEvent.date,
     });
-
     if (error) {
-      alert("Feil ved lagring: " + error.message);
-    } else {
-      setActiveCell(null);
-      setInputValue("");
-      router.refresh();
+      alert("Feil: " + error.message);
+      return;
     }
+    setActiveEvent(null);
+    router.refresh();
+  };
+
+  // Slett hele eventet (alle forekomster)
+  const handleDeleteAll = async () => {
+    if (!activeEvent) return;
+    const { error } = await supabase
+      .from("events")
+      .delete()
+      .eq("id", activeEvent.event.id);
+    if (error) {
+      alert("Feil: " + error.message);
+      return;
+    }
+    setActiveEvent(null);
+    router.refresh();
   };
 
   return (
@@ -103,7 +153,7 @@ export default function WeekGrid({ members, events, currentMonday }: Props) {
         </Link>
       </div>
 
-      {/* Ingen medlemmer ennå */}
+      {/* Ingen medlemmer */}
       {members.length === 0 && (
         <div className="text-center py-16">
           <p className="text-slate-400 mb-4">Ingen familiemedlemmer lagt til ennå.</p>
@@ -116,32 +166,25 @@ export default function WeekGrid({ members, events, currentMonday }: Props) {
         </div>
       )}
 
-      {/* Uke-navigasjon */}
       {members.length > 0 && (
         <>
+          {/* Uke-navigasjon */}
           <div className="flex items-center gap-3 mb-5">
-            <button
-              onClick={() => navigate(-1)}
-              className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 rounded transition-colors text-sm"
-            >
+            <button onClick={() => navigate(-1)} className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 rounded transition-colors text-sm">
               ← Forrige
             </button>
             <button
               onClick={() => navigate(0)}
               className={`px-4 py-1.5 rounded transition-colors text-sm font-medium ${
-                isCurrentWeek
-                  ? "bg-blue-500 text-white"
-                  : "bg-slate-700 hover:bg-slate-600"
+                isCurrentWeek ? "bg-blue-500 text-white" : "bg-slate-700 hover:bg-slate-600"
               }`}
             >
               Denne uken
             </button>
-            <button
-              onClick={() => navigate(1)}
-              className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 rounded transition-colors text-sm"
-            >
+            <button onClick={() => navigate(1)} className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 rounded transition-colors text-sm">
               Neste →
             </button>
+            <span className="ml-2 text-slate-500 text-sm">Uke {weekNumber}</span>
           </div>
 
           {/* Ukesvisning */}
@@ -154,9 +197,7 @@ export default function WeekGrid({ members, events, currentMonday }: Props) {
                   const isToday = formatDate(date) === todayStr;
                   return (
                     <div key={i} className="text-center">
-                      <div className="text-xs text-slate-500 uppercase tracking-wide">
-                        {DAY_NAMES[i]}
-                      </div>
+                      <div className="text-xs text-slate-500 uppercase tracking-wide">{DAY_NAMES[i]}</div>
                       <div className={`text-sm font-semibold mt-0.5 ${isToday ? "text-blue-400" : "text-slate-300"}`}>
                         {date.getDate()}.{date.getMonth() + 1}
                       </div>
@@ -179,51 +220,38 @@ export default function WeekGrid({ members, events, currentMonday }: Props) {
                   {weekDates.map((date, i) => {
                     const dateStr = formatDate(date);
                     const isToday = dateStr === todayStr;
-                    const isActive =
-                      activeCell?.memberId === member.id &&
-                      activeCell?.date === dateStr;
-                    const dayEvents = events.filter(
-                      (e) => e.family_member_id === member.id && e.date === dateStr
-                    );
+                    const cellEvents = getEventsForCell(member.id, dateStr);
 
                     return (
                       <div
                         key={i}
-                        className={`h-20 rounded p-1 text-xs transition-colors ${
-                          isActive
-                            ? "bg-slate-600 ring-2 ring-blue-400"
-                            : isToday
-                            ? "bg-slate-700 ring-1 ring-blue-500 cursor-pointer hover:bg-slate-600"
-                            : "bg-slate-800 cursor-pointer hover:bg-slate-700"
+                        onClick={() => setModalCell({ memberId: member.id, date: dateStr })}
+                        className={`h-20 rounded p-1 text-xs cursor-pointer transition-colors overflow-hidden ${
+                          isToday
+                            ? "bg-slate-700 ring-1 ring-blue-500 hover:bg-slate-600"
+                            : "bg-slate-800 hover:bg-slate-700"
                         }`}
-                        onClick={() => { if (!isActive) openCell(member.id, dateStr); }}
                       >
-                        {!isActive && dayEvents.map((event) => (
-                          <div key={event.id} className={`${member.color} rounded p-1 text-white mb-1`}>
+                        {cellEvents.map((event) => (
+                          <div
+                            key={event.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveEvent({ event, date: dateStr });
+                            }}
+                            className={`${member.color} rounded p-1 text-white mb-1 cursor-pointer hover:opacity-80 transition-opacity`}
+                          >
                             {(event.start_time || event.end_time) && (
                               <div className="text-[10px] opacity-80">
                                 {event.start_time}{event.end_time && ` – ${event.end_time}`}
                               </div>
                             )}
-                            <div className="font-medium leading-tight">{event.title}</div>
+                            <div className="font-medium leading-tight truncate">
+                              {event.title}
+                              {event.recurring && <span className="ml-1 opacity-60 text-[9px]">↻</span>}
+                            </div>
                           </div>
                         ))}
-
-                        {isActive && (
-                          <input
-                            ref={inputRef}
-                            type="text"
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") saveEvent();
-                              if (e.key === "Escape") setActiveCell(null);
-                            }}
-                            onBlur={saveEvent}
-                            placeholder="Aktivitet..."
-                            className="w-full bg-transparent text-white placeholder-slate-400 outline-none text-xs"
-                          />
-                        )}
                       </div>
                     );
                   })}
@@ -232,6 +260,28 @@ export default function WeekGrid({ members, events, currentMonday }: Props) {
             </div>
           </div>
         </>
+      )}
+
+      {/* Modal: opprett event */}
+      {modalCell && (
+        <EventModal
+          date={modalCell.date}
+          members={members}
+          preSelectedMemberId={modalCell.memberId}
+          onSave={handleSaveEvent}
+          onClose={() => setModalCell(null)}
+        />
+      )}
+
+      {/* Modal: vis/slett event */}
+      {activeEvent && (
+        <EventActionsModal
+          event={activeEvent.event}
+          date={activeEvent.date}
+          onDeleteSingle={handleDeleteSingle}
+          onDeleteAll={handleDeleteAll}
+          onClose={() => setActiveEvent(null)}
+        />
       )}
     </main>
   );
