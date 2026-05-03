@@ -10,6 +10,7 @@ import EventModal from "@/components/EventModal";
 import EventActionsModal from "@/components/EventActionsModal";
 
 const DAY_NAMES = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
+const MONTH_NAMES = ["Januar", "Februar", "Mars", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Desember"];
 const MAX_VISIBLE_EVENTS = 3;
 
 type ModalCell = { memberId: string; date: string } | null;
@@ -48,6 +49,17 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
     newMonday.setDate(monday.getDate() + direction * 7);
     router.push(`?week=${formatDate(newMonday)}`);
   };
+
+  const navigateMonth = (direction: -1 | 1) => {
+    const targetMonth = monday.getMonth() + direction;
+    const targetYear = monday.getFullYear() + (targetMonth < 0 ? -1 : targetMonth > 11 ? 1 : 0);
+    const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+    const firstOfMonth = new Date(targetYear, normalizedMonth, 1);
+    router.push(`?week=${formatDate(getMondayOfWeek(firstOfMonth))}`);
+  };
+
+  const currentMonthName = MONTH_NAMES[monday.getMonth()];
+  const currentYear = monday.getFullYear();
 
   // Finn events for et gitt familiemedlem på en gitt dato (støtter flerdagsaktiviteter)
   const getEventsForCell = (memberId: string, dateStr: string): Event[] => {
@@ -190,23 +202,38 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
 
       {members.length > 0 && (
         <>
-          {/* Uke-navigasjon */}
-          <div className="flex items-center gap-3 mb-5">
-            <button onClick={() => navigate(-1)} className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 rounded transition-colors text-sm">
-              ← Forrige
-            </button>
-            <button
-              onClick={() => navigate(0)}
-              className={`px-4 py-1.5 rounded transition-colors text-sm font-medium ${
-                isCurrentWeek ? "bg-blue-500 text-white" : "bg-gray-100 hover:bg-gray-200"
-              }`}
-            >
-              Denne uken
-            </button>
-            <button onClick={() => navigate(1)} className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 rounded transition-colors text-sm">
-              Neste →
-            </button>
-            <span className="ml-2 text-gray-400 text-sm">Uke {weekNumber}</span>
+          {/* Navigasjon */}
+          <div className="flex flex-col gap-2 mb-5">
+            {/* Månedsnav */}
+            <div className="flex items-center gap-2">
+              <button onClick={() => navigateMonth(-1)} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded transition-colors text-sm">
+                ‹‹ Forrige mnd
+              </button>
+              <span className="font-semibold text-base min-w-[140px] text-center">
+                {currentMonthName} {currentYear}
+              </span>
+              <button onClick={() => navigateMonth(1)} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded transition-colors text-sm">
+                Neste mnd ››
+              </button>
+            </div>
+            {/* Ukenav */}
+            <div className="flex items-center gap-2">
+              <button onClick={() => navigate(-1)} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded transition-colors text-sm">
+                ← Forrige uke
+              </button>
+              <button
+                onClick={() => navigate(0)}
+                className={`px-3 py-1.5 rounded transition-colors text-sm font-medium ${
+                  isCurrentWeek ? "bg-blue-500 text-white" : "bg-gray-100 hover:bg-gray-200"
+                }`}
+              >
+                Denne uken
+              </button>
+              <button onClick={() => navigate(1)} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded transition-colors text-sm">
+                Neste uke →
+              </button>
+              <span className="ml-1 text-gray-400 text-sm">Uke {weekNumber}</span>
+            </div>
           </div>
 
           {/* Ukesvisning */}
