@@ -4,6 +4,16 @@ import type { Event } from "@/lib/types";
 
 const DAY_NAMES = ["Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag"];
 
+function formatDisplayDate(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00");
+  return `${DAY_NAMES[d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}`;
+}
+
+function formatTime(t: string | null): string | null {
+  if (!t) return null;
+  return t.slice(0, 5);
+}
+
 type Props = {
   event: Event;
   date: string; // YYYY-MM-DD – datoen som ble klikket (relevant for gjentagende)
@@ -19,8 +29,9 @@ export default function EventActionsModal({
   onDeleteAll,
   onClose,
 }: Props) {
-  const dateObj = new Date(date + "T00:00:00");
-  const dateDisplay = `${DAY_NAMES[dateObj.getDay()]} ${dateObj.getDate()}.${dateObj.getMonth() + 1}`;
+  const st = formatTime(event.start_time);
+  const et = formatTime(event.end_time);
+  const isMultiDay = event.end_date && event.end_date !== event.date;
 
   return (
     <div
@@ -33,11 +44,16 @@ export default function EventActionsModal({
       >
         {/* Header */}
         <div className="mb-4">
-          <p className="text-xs text-gray-400 mb-1">{dateDisplay}</p>
+          <p className="text-xs text-gray-400 mb-1">{formatDisplayDate(date)}</p>
           <h2 className="text-lg font-semibold">{event.title}</h2>
-          {(event.start_time || event.end_time) && (
+          {(st || et) && (
             <p className="text-sm text-gray-500 mt-0.5">
-              {event.start_time}{event.end_time && ` – ${event.end_time}`}
+              {st}{et && ` – ${et}`}
+            </p>
+          )}
+          {isMultiDay && (
+            <p className="text-sm text-gray-500 mt-0.5">
+              ⟷ {formatDisplayDate(event.date)} → {formatDisplayDate(event.end_date!)}
             </p>
           )}
           {event.recurring && (
@@ -51,13 +67,13 @@ export default function EventActionsModal({
             <>
               <button
                 onClick={onDeleteSingle}
-                className="w-full py-2.5 px-4 rounded-lg bg-gray-100 hover:bg-red-900/40 hover:text-red-300 transition-colors text-sm text-left"
+                className="w-full py-2.5 px-4 rounded-lg bg-gray-100 hover:bg-red-50 hover:text-red-600 transition-colors text-sm text-left"
               >
                 🗑 Slett bare denne uken
               </button>
               <button
                 onClick={onDeleteAll}
-                className="w-full py-2.5 px-4 rounded-lg bg-gray-100 hover:bg-red-900/40 hover:text-red-300 transition-colors text-sm text-left"
+                className="w-full py-2.5 px-4 rounded-lg bg-gray-100 hover:bg-red-50 hover:text-red-600 transition-colors text-sm text-left"
               >
                 🗑 Slett alle forekomster
               </button>
@@ -65,7 +81,7 @@ export default function EventActionsModal({
           ) : (
             <button
               onClick={onDeleteAll}
-              className="w-full py-2.5 px-4 rounded-lg bg-gray-100 hover:bg-red-900/40 hover:text-red-300 transition-colors text-sm text-left"
+              className="w-full py-2.5 px-4 rounded-lg bg-gray-100 hover:bg-red-50 hover:text-red-600 transition-colors text-sm text-left"
             >
               🗑 Slett aktivitet
             </button>

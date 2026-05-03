@@ -7,6 +7,7 @@ const DAY_NAMES = ["Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag"
 
 type SaveData = {
   title: string;
+  end_date: string | null;
   start_time: string | null;
   end_time: string | null;
   recurring: boolean;
@@ -29,6 +30,7 @@ export default function EventModal({
   onClose,
 }: Props) {
   const [title, setTitle] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [recurring, setRecurring] = useState(false);
@@ -49,8 +51,9 @@ export default function EventModal({
     if (!title.trim() || selectedIds.length === 0) return;
     onSave({
       title: title.trim(),
-      start_time: startTime || null,
-      end_time: endTime || null,
+      end_date: endDate || null,
+      start_time: startTime ? startTime.slice(0, 5) : null,
+      end_time: endTime ? endTime.slice(0, 5) : null,
       recurring,
       participant_ids: selectedIds,
     });
@@ -58,6 +61,9 @@ export default function EventModal({
 
   const dateObj = new Date(date + "T00:00:00");
   const dateDisplay = `${DAY_NAMES[dateObj.getDay()]} ${dateObj.getDate()}.${dateObj.getMonth() + 1}`;
+
+  // Vis sluttdato-felt hvis sluttid er satt og sluttid <= starttid
+  const showEndDate = endDate || (startTime && endTime && endTime <= startTime);
 
   return (
     <div
@@ -88,7 +94,7 @@ export default function EventModal({
         {/* Tid */}
         <div className="flex gap-3 mb-3">
           <div className="flex-1">
-            <label className="text-xs text-gray-400 mb-1 block">Fra</label>
+            <label className="text-xs text-gray-400 mb-1 block">Fra (tid)</label>
             <input
               type="time"
               value={startTime}
@@ -97,7 +103,7 @@ export default function EventModal({
             />
           </div>
           <div className="flex-1">
-            <label className="text-xs text-gray-400 mb-1 block">Til</label>
+            <label className="text-xs text-gray-400 mb-1 block">Til (tid)</label>
             <input
               type="time"
               value={endTime}
@@ -105,6 +111,30 @@ export default function EventModal({
               className="w-full p-2 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>
+        </div>
+
+        {/* Sluttdato – vises alltid hvis satt, eller hvis sluttid <= starttid */}
+        <div className="mb-3">
+          <label className="text-xs text-gray-400 mb-1 block">
+            Sluttdato{" "}
+            <span className="text-gray-300">
+              (valgfritt – ved overnatting eller flerdagsaktivitet)
+            </span>
+          </label>
+          <input
+            type="date"
+            value={endDate}
+            min={date}
+            onChange={(e) => setEndDate(e.target.value)}
+            className={`w-full p-2 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-colors ${
+              showEndDate ? "bg-blue-50 ring-1 ring-blue-300" : "bg-gray-100"
+            }`}
+          />
+          {showEndDate && endDate && (
+            <p className="text-xs text-blue-500 mt-1">
+              ✓ Vises i kalenderen fra {dateDisplay} til sluttdato
+            </p>
+          )}
         </div>
 
         {/* Gjentagelse */}

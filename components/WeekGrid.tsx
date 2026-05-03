@@ -10,6 +10,7 @@ import EventModal from "@/components/EventModal";
 import EventActionsModal from "@/components/EventActionsModal";
 
 const DAY_NAMES = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
+const MAX_VISIBLE_EVENTS = 3;
 
 type ModalCell = { memberId: string; date: string } | null;
 type ActiveEvent = { event: Event; date: string } | null;
@@ -20,6 +21,12 @@ type Props = {
   exceptions: EventException[];
   currentMonday: string;
 };
+
+// Vis kun HH:MM (strip sekunder)
+function formatTime(t: string | null): string | null {
+  if (!t) return null;
+  return t.slice(0, 5);
+}
 
 export default function WeekGrid({ members, events, exceptions, currentMonday }: Props) {
   const router = useRouter();
@@ -42,13 +49,17 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
     router.push(`?week=${formatDate(newMonday)}`);
   };
 
-  // Finn events for et gitt familiemedlem på en gitt dato
+  // Finn events for et gitt familiemedlem på en gitt dato (støtter flerdagsaktiviteter)
   const getEventsForCell = (memberId: string, dateStr: string): Event[] => {
     const cellDate = new Date(dateStr + "T00:00:00");
     return events.filter((e) => {
       if (!e.participant_ids.includes(memberId)) return false;
-      if (!e.recurring) return e.date === dateStr;
-      // Gjentagende: vis på samme ukedag, men ikke hvis det finnes et unntak
+      if (!e.recurring) {
+        const startDate = new Date(e.date + "T00:00:00");
+        const endDate = e.end_date ? new Date(e.end_date + "T00:00:00") : startDate;
+        return cellDate >= startDate && cellDate <= endDate;
+      }
+      // Gjentagende: vis på samme ukedag
       const eventDayOfWeek = new Date(e.date + "T00:00:00").getDay();
       if (cellDate.getDay() !== eventDayOfWeek) return false;
       const hasException = exceptions.some(
@@ -61,6 +72,7 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
   // Lagre ny event
   const handleSaveEvent = async (data: {
     title: string;
+    end_date: string | null;
     start_time: string | null;
     end_time: string | null;
     recurring: boolean;
@@ -73,6 +85,7 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
       .insert({
         title: data.title,
         date: modalCell.date,
+        end_date: data.end_date,
         start_time: data.start_time,
         end_time: data.end_time,
         recurring: data.recurring,
@@ -230,37 +243,57 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
                     const dateStr = formatDate(date);
                     const isToday = dateStr === todayStr;
                     const cellEvents = getEventsForCell(member.id, dateStr);
+                    const visibleEvents = cellEvents.slice(0, MAX_VISIBLE_EVENTS);
+                    const hiddenCount = cellEvents.length - MAX_VISIBLE_EVENTS;
 
                     return (
                       <div
                         key={i}
                         onClick={() => setModalCell({ memberId: member.id, date: dateStr })}
-                        className={`h-20 rounded p-1 text-xs cursor-pointer transition-colors overflow-hidden ${
+                        className={`min-h-20 rounded p-1 cursor-pointer transition-colors ${
                           isToday
                             ? "bg-gray-100 ring-1 ring-blue-500 hover:bg-gray-200"
                             : "bg-white hover:bg-gray-100"
                         }`}
                       >
-                        {cellEvents.map((event) => (
-                          <div
-                            key={event.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveEvent({ event, date: dateStr });
-                            }}
-                            className={`${member.color} rounded p-1 text-gray-900 mb-1 cursor-pointer hover:opacity-80 transition-opacity`}
-                          >
-                            {(event.start_time || event.end_time) && (
-                              <div className="text-[10px] opacity-80">
-                                {event.start_time}{event.end_time && ` – ${event.end_time}`}
+                        {visibleEvents.map((event) => {
+                          const isFirstDay = event.date === dateStr;
+                          const isLastDay = (event.end_date ?? event.date) === dateStr;
+                          const st = formatTime(event.start_time);
+                          const et = formatTime(event.end_time);
+
+                          return (
+                            <div
+                              key={event.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveEvent({ event, date: dateStr });
+                              }}
+                              className={`${member.color} rounded p-1.5 text-gray-900 mb-1 cursor-pointer hover:opacity-80 transition-opacity`}
+                            >
+                              {(st || et) && (
+                                <div className="text-xs opacity-70 leading-tight">
+                                  {isFirstDay && st && <span>{st}</span>}
+                                  {isFirstDay && st && isLastDay && et && <span> – {et}</span>}
+                                  {isFirstDay && st && !isLastDay && <span> →</span>}
+                                  {!isFirstDay && isLastDay && et && <span>→ {et}</span>}
+                                </div>
+                              )}
+                              <div className="text-xs font-semibold leading-tight truncate">
+                                {event.title}
+                                {event.recurring && <span className="ml-1 opacity-50 text-[9px]">↻</span>}
+                                {event.end_date && !event.recurring && (
+                                  <span className="ml-1 opacity-50 text-[9px]">⟷</span>
+                                )}
                               </div>
-                            )}
-                            <div className="font-medium leading-tight truncate">
-                              {event.title}
-                              {event.recurring && <span className="ml-1 opacity-60 text-[9px]">↻</span>}
                             </div>
+                          );
+                        })}
+                        {hiddenCount > 0 && (
+                          <div className="text-xs text-gray-400 pl-1 mt-0.5">
+                            +{hiddenCount} mer
                           </div>
-                        ))}
+                        )}
                       </div>
                     );
                   })}

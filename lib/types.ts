@@ -38,6 +38,7 @@ export type Event = {
   id: string;
   title: string;
   date: string; // YYYY-MM-DD (startdato, brukes også for ukedag ved gjentagelse)
+  end_date: string | null; // YYYY-MM-DD (sluttdato for flerdagsaktiviteter)
   start_time: string | null;
   end_time: string | null;
   recurring: boolean;

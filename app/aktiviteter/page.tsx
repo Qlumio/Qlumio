@@ -22,16 +22,23 @@ export default async function AktiviteterPage({
   const mondayStr = formatDate(monday);
   const sundayStr = formatDate(weekDates[6]);
 
+  // Hent litt ekstra bakover for å fange opp flerdagsaktiviteter som starter før uken
+  const extendedFrom = new Date(monday);
+  extendedFrom.setDate(monday.getDate() - 14);
+  const extendedFromStr = formatDate(extendedFrom);
+
   const { data: members } = await supabase
     .from("family_members")
     .select("*")
     .order("created_at");
 
+  // Hent ikke-gjentagende events: starter innen siste 14 dager og slutter senest søndag
+  // (dekker flerdagsaktiviteter som startet dagen/dagene før uken)
   const { data: weekEventsRaw } = await supabase
     .from("events")
     .select("*, event_participants(family_member_id)")
     .eq("recurring", false)
-    .gte("date", mondayStr)
+    .gte("date", extendedFromStr)
     .lte("date", sundayStr);
 
   const { data: recurringEventsRaw } = await supabase
@@ -48,6 +55,7 @@ export default async function AktiviteterPage({
     id: e.id,
     title: e.title,
     date: e.date,
+    end_date: e.end_date ?? null,
     start_time: e.start_time,
     end_time: e.end_time,
     recurring: e.recurring,
@@ -57,8 +65,14 @@ export default async function AktiviteterPage({
     ),
   });
 
+  // Filtrer ut events som faktisk overlapper med denne uken
+  const allNonRecurring = (weekEventsRaw ?? []).map(normalize).filter((e) => {
+    const endDate = e.end_date ?? e.date;
+    return endDate >= mondayStr; // sluttdato er i eller etter denne uken
+  });
+
   const events: Event[] = [
-    ...(weekEventsRaw ?? []).map(normalize),
+    ...allNonRecurring,
     ...(recurringEventsRaw ?? []).map(normalize),
   ];
 
