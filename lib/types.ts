@@ -34,6 +34,15 @@ export type EventException = {
   date: string; // YYYY-MM-DD
 };
 
+export type ShoppingItem = {
+  id: string;
+  name: string;
+  added_by: string | null;
+  checked: boolean;
+  checked_at: string | null;
+  created_at: string;
+};
+
 export type Event = {
   id: string;
   title: string;
