@@ -51,11 +51,19 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
   };
 
   const navigateMonth = (direction: -1 | 1) => {
-    const targetMonth = monday.getMonth() + direction;
-    const targetYear = monday.getFullYear() + (targetMonth < 0 ? -1 : targetMonth > 11 ? 1 : 0);
-    const normalizedMonth = ((targetMonth % 12) + 12) % 12;
-    const firstOfMonth = new Date(targetYear, normalizedMonth, 1);
-    router.push(`?week=${formatDate(getMondayOfWeek(firstOfMonth))}`);
+    const d = new Date(monday);
+    d.setDate(1);
+    d.setMonth(d.getMonth() + direction);
+    const targetMonth = d.getMonth();
+    const targetYear = d.getFullYear();
+
+    // getMondayOfWeek kan returnere en dato i forrige måned (f.eks. hvis 1. juli er onsdag
+    // → mandag blir 29. juni). Sjekk at vi faktisk er i riktig måned, ellers hopp en uke frem.
+    const candidate = getMondayOfWeek(d);
+    if (candidate.getMonth() !== targetMonth || candidate.getFullYear() !== targetYear) {
+      candidate.setDate(candidate.getDate() + 7);
+    }
+    router.push(`?week=${formatDate(candidate)}`);
   };
 
   const currentMonthName = MONTH_NAMES[monday.getMonth()];
