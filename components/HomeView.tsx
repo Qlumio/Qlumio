@@ -239,32 +239,32 @@ export default function HomeView({ members, events, exceptions, tasks, todayStr 
               </Link>
             )}
             {todayEvents.length > 0 && (
-              <Link href="/aktiviteter" className="block bg-white px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-semibold text-blue-500 uppercase tracking-wider">I dag</span>
+              <Link href="/aktiviteter" className="block bg-white px-4 py-4 rounded-xl hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold text-blue-500 uppercase tracking-widest">I dag</span>
                   <span className="text-xs text-gray-300">→</span>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-3">
                   {todayEvents.map((ev) => (
-                    <div key={ev.id} className="flex items-center gap-2">
-                      <span className="text-sm text-gray-800">{ev.title}</span>
-                      {ev.start_time && <span className="text-xs text-gray-400">{ev.start_time.slice(0, 5)}</span>}
+                    <div key={ev.id} className="flex items-baseline justify-between gap-3">
+                      <span className="text-sm font-medium text-gray-800">{ev.title}</span>
+                      {ev.start_time && <span className="text-sm text-gray-400 flex-shrink-0">{ev.start_time.slice(0, 5)}</span>}
                     </div>
                   ))}
                 </div>
               </Link>
             )}
             {tomorrowEvents.length > 0 && (
-              <Link href="/aktiviteter" className="block bg-white px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">I morgen</span>
+              <Link href="/aktiviteter" className="block bg-white px-4 py-4 rounded-xl hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">I morgen</span>
                   <span className="text-xs text-gray-300">→</span>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-3">
                   {tomorrowEvents.map((ev) => (
-                    <div key={ev.id} className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600">{ev.title}</span>
-                      {ev.start_time && <span className="text-xs text-gray-400">{ev.start_time.slice(0, 5)}</span>}
+                    <div key={ev.id} className="flex items-baseline justify-between gap-3">
+                      <span className="text-sm font-medium text-gray-600">{ev.title}</span>
+                      {ev.start_time && <span className="text-sm text-gray-400 flex-shrink-0">{ev.start_time.slice(0, 5)}</span>}
                     </div>
                   ))}
                 </div>
