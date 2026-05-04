@@ -13,6 +13,15 @@ const DAY_NAMES = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
 const MONTH_NAMES = ["Januar", "Februar", "Mars", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Desember"];
 const MAX_VISIBLE_EVENTS = 3;
 
+// Konverter mettede farger (bg-X-500) til pastell (bg-X-100) for aktivitetskort
+function toChipColor(memberColor: string): string {
+  return memberColor
+    .replace(/-700$/, "-200")
+    .replace(/-600$/, "-100")
+    .replace(/-500$/, "-100")
+    .replace(/-400$/, "-100");
+}
+
 type ModalCell = { memberId: string; date: string } | null;
 type ActiveEvent = { event: Event; date: string } | null;
 
@@ -277,7 +286,7 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
           <div className="overflow-x-auto">
             <div className="min-w-[700px]">
               {/* Datoheader */}
-              <div className="grid grid-cols-[140px_repeat(7,1fr)] gap-2 mb-2">
+              <div className="grid grid-cols-[150px_repeat(7,1fr)] gap-2 mb-2">
                 <div />
                 {weekDates.map((date, i) => {
                   const isToday = formatDate(date) === todayStr;
@@ -294,12 +303,11 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
 
               {/* Rad per familiemedlem */}
               {members.map((member) => (
-                <div key={member.id} className="grid grid-cols-[140px_repeat(7,1fr)] gap-2 mb-2">
+                <div key={member.id} className="grid grid-cols-[150px_repeat(7,1fr)] gap-2 mb-2">
                   <div className="flex items-center gap-2 text-sm pr-2">
-                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${member.color}`} />
+                    <div className={`w-3 h-3 rounded-full flex-shrink-0 ${member.color}`} />
                     <div className="min-w-0">
                       <div className="font-medium truncate">{member.name}</div>
-                      <div className="text-xs text-gray-400 truncate">{member.role}</div>
                     </div>
                   </div>
 
@@ -314,7 +322,7 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
                       <div
                         key={i}
                         onClick={() => setModalCell({ memberId: member.id, date: dateStr })}
-                        className={`min-h-20 rounded p-1 cursor-pointer transition-colors ${
+                        className={`min-h-28 rounded-lg p-1.5 cursor-pointer transition-colors ${
                           isToday
                             ? "bg-gray-100 ring-1 ring-blue-500 hover:bg-gray-200"
                             : "bg-white hover:bg-gray-100"
@@ -345,17 +353,17 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
                                 e.stopPropagation();
                                 setActiveEvent({ event, date: dateStr });
                               }}
-                              className={`${member.color} rounded p-1.5 text-gray-900 mb-1 cursor-pointer hover:opacity-80 transition-opacity`}
+                              className={`${toChipColor(member.color)} rounded-md p-2 text-gray-800 mb-1.5 cursor-pointer hover:opacity-80 transition-opacity`}
                             >
                               {(st || et) && (
-                                <div className="text-xs opacity-70 leading-tight">
+                                <div className="text-xs text-gray-500 leading-tight mb-0.5">
                                   {isFirstDay && st && <span>{st}</span>}
                                   {isFirstDay && st && isLastDay && et && <span> – {et}</span>}
                                   {isFirstDay && st && !isLastDay && <span> →</span>}
                                   {!isFirstDay && isLastDay && et && <span>→ {et}</span>}
                                 </div>
                               )}
-                              <div className="text-xs font-semibold leading-tight truncate">
+                              <div className="text-sm font-semibold leading-tight truncate">
                                 {event.title}
                                 {event.recurring && <span className="ml-1 opacity-50 text-[9px]">↻</span>}
                                 {event.end_date && !event.recurring && (
