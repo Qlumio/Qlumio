@@ -67,16 +67,18 @@ type Props = {
 
 const MONTH_NAMES = ["jan", "feb", "mar", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "des"];
 
-function getMonthCols(): MonthCol[] {
+function getMonthColsForYear(year: number): MonthCol[] {
   const now = new Date();
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+  const thisYear = now.getFullYear();
+  const thisMonth = now.getMonth() + 1;
+  return Array.from({ length: 12 }, (_, i) => {
+    const month = i + 1;
     return {
-      year: d.getFullYear(),
-      month: d.getMonth() + 1,
-      label: MONTH_NAMES[d.getMonth()],
-      isCurrent: i === 0,
-      isPast: false,
+      year,
+      month,
+      label: MONTH_NAMES[i],
+      isCurrent: year === thisYear && month === thisMonth,
+      isPast: year < thisYear || (year === thisYear && month < thisMonth),
     };
   });
 }
@@ -88,8 +90,9 @@ function fmt(n: number): string {
 
 export default function BudgetView({ categories: initialCategories, overrides: initialOverrides, maintenanceTasks, plannedExpenses }: Props) {
   const router = useRouter();
-  const monthCols = getMonthCols();
   const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const monthCols = getMonthColsForYear(selectedYear);
 
   // Faner
   const [activeTab, setActiveTab] = useState<"actual" | "simulated">("actual");
@@ -156,10 +159,10 @@ export default function BudgetView({ categories: initialCategories, overrides: i
   const getAnnualTotal = useCallback(
     (itemId: string): number => {
       let total = 0;
-      for (let m = 1; m <= 12; m++) total += getVal(itemId, currentYear, m);
+      for (let m = 1; m <= 12; m++) total += getVal(itemId, selectedYear, m);
       return total;
     },
-    [getVal, currentYear]
+    [getVal, selectedYear]
   );
 
   const getCatMonthTotal = useCallback(
@@ -186,7 +189,7 @@ export default function BudgetView({ categories: initialCategories, overrides: i
 
   const getMaintenanceAnnualTotal = (): number =>
     maintenanceTasks
-      .filter((t) => new Date(t.due_date + "T00:00:00").getFullYear() === currentYear)
+      .filter((t) => new Date(t.due_date + "T00:00:00").getFullYear() === selectedYear)
       .reduce((sum, t) => sum + t.estimated_cost, 0);
 
   const getPlannedMonthTotal = (year: number, month: number): number =>
@@ -199,7 +202,7 @@ export default function BudgetView({ categories: initialCategories, overrides: i
 
   const getPlannedAnnualTotal = (): number =>
     plannedExpenses
-      .filter((e) => new Date(e.date + "T00:00:00").getFullYear() === currentYear)
+      .filter((e) => new Date(e.date + "T00:00:00").getFullYear() === selectedYear)
       .reduce((sum, e) => sum + e.amount, 0);
 
   const getRestMonth = (year: number, month: number) => {
@@ -219,11 +222,19 @@ export default function BudgetView({ categories: initialCategories, overrides: i
   // --- Slett alt grunnlag ---
   const handleDeleteAll = async () => {
     setDeleting(true);
+    // Slett kun månedlige unntak
     await supabase.from("budget_overrides").delete().neq("item_id", "00000000-0000-0000-0000-000000000000");
-    await supabase.from("budget_items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-    await supabase.from("budget_categories").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-    setCategories([]);
-    setDefaults({});
+    // Nullstill månedlig standardverdi på alle poster
+    const allItemIds = categories.flatMap((c) => c.items.map((i) => i.id));
+    if (allItemIds.length > 0) {
+      await supabase.from("budget_items").update({ monthly_default: 0 }).in("id", allItemIds);
+    }
+    // Oppdater lokal state – behold struktur, nullstill tall
+    setDefaults((prev) => {
+      const next = { ...prev };
+      allItemIds.forEach((id) => { next[id] = 0; });
+      return next;
+    });
     setOverrides({});
     setDeleting(false);
     setConfirmDelete(false);
@@ -341,7 +352,34 @@ export default function BudgetView({ categories: initialCategories, overrides: i
             <h1 className="text-lg font-semibold">Familie økonomi</h1>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 bg-white px-2 py-1 rounded">{currentYear}</span>
+            {/* År-navigasjon */}
+            <div className="flex items-center gap-1 bg-white rounded-lg px-1 py-0.5">
+              <button
+                onClick={() => setSelectedYear((y) => Math.max(currentYear, y - 1))}
+                disabled={selectedYear <= currentYear}
+                className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors text-sm"
+              >
+                ‹
+              </button>
+              <span className={`text-sm font-semibold px-1 min-w-[44px] text-center ${selectedYear === currentYear ? "text-blue-500" : "text-gray-700"}`}>
+                {selectedYear}
+              </span>
+              <button
+                onClick={() => setSelectedYear((y) => Math.min(currentYear + 10, y + 1))}
+                disabled={selectedYear >= currentYear + 10}
+                className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors text-sm"
+              >
+                ›
+              </button>
+            </div>
+            {selectedYear !== currentYear && (
+              <button
+                onClick={() => setSelectedYear(currentYear)}
+                className="text-xs text-blue-500 hover:text-blue-600 transition-colors"
+              >
+                I dag
+              </button>
+            )}
             <button
               onClick={() => setConfirmDelete(true)}
               className="text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-white"
@@ -374,7 +412,7 @@ export default function BudgetView({ categories: initialCategories, overrides: i
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
             <h2 className="text-lg font-semibold mb-2">Slett alt grunnlag?</h2>
-            <p className="text-sm text-gray-500 mb-5">Dette sletter alle kategorier, poster og månedlige unntak permanent. Engangsutgifter og vedlikeholdsoppgaver beholdes.</p>
+            <p className="text-sm text-gray-500 mb-5">Dette nullstiller alle tallverdier (standardbeløp og månedlige unntak). Selve postene og kategoriene beholdes, slik at du kan fylle inn nye tall.</p>
             <div className="flex gap-2">
               <button onClick={() => setConfirmDelete(false)} className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-sm">Avbryt</button>
               <button onClick={handleDeleteAll} disabled={deleting}
@@ -516,7 +554,7 @@ export default function BudgetView({ categories: initialCategories, overrides: i
               {monthCols.map((col) => (
                 <th key={`${col.year}-${col.month}`} className={`text-right px-2 py-2 text-xs uppercase tracking-wide font-medium ${col.isCurrent ? "text-blue-500" : "text-gray-400"}`} style={{ minWidth: "80px" }}>
                   {col.label}
-                  {col.year !== currentYear && <span className="block text-[10px] text-gray-400">{col.year}</span>}
+                  {selectedYear !== currentYear && <span className="block text-[10px] text-gray-400">{col.year}</span>}
                 </th>
               ))}
               <th className="text-right px-2 py-2 text-xs text-gray-400 uppercase tracking-wide font-medium" style={{ minWidth: "80px" }}>År</th>
