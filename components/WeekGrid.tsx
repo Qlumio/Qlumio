@@ -416,6 +416,7 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
           onDeleteSingle={handleDeleteSingle}
           onDeleteAll={handleDeleteAll}
           onClose={() => setActiveEvent(null)}
+          onUpdated={() => router.refresh()}
         />
       )}
     </main>
