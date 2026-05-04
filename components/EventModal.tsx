@@ -368,6 +368,10 @@ function TimePicker({ value, onChange, label }: { value: string; onChange: (v: s
 
 // ─── EventModal ──────────────────────────────────────────────────────────────
 export default function EventModal({ date, members, preSelectedMemberId, onSave, onClose }: Props) {
+  // Modus: aktivitet eller oppgave
+  const [modalMode, setModalMode] = useState<"event" | "task">("event");
+
+  // ── Aktivitet-state ──
   const [category, setCategory] = useState<string>("");
   const [customTitle, setCustomTitle] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -378,11 +382,16 @@ export default function EventModal({ date, members, preSelectedMemberId, onSave,
   const [selectedIds, setSelectedIds] = useState<string[]>([preSelectedMemberId]);
   const [responsibleId, setResponsibleId] = useState<string>("");
 
-  // Oppgaver som skal opprettes samtidig
+  // ── Oppgave-state (både frittstående og knyttet til aktivitet) ──
   type TaskDraft = { id: number; title: string; assignedTo: string };
   const [taskDrafts, setTaskDrafts] = useState<TaskDraft[]>([]);
   const [showTasks, setShowTasks] = useState(false);
   const nextTaskId = useRef(0);
+
+  // Frittstående oppgave-modus
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskAssignedTo, setTaskAssignedTo] = useState(preSelectedMemberId);
+  const [taskNotes, setTaskNotes] = useState("");
 
   const addTaskDraft = () => {
     setTaskDrafts((prev) => [...prev, { id: nextTaskId.current++, title: "", assignedTo: preSelectedMemberId }]);
@@ -408,16 +417,29 @@ export default function EventModal({ date, members, preSelectedMemberId, onSave,
   const selectedCat = EVENT_CATEGORIES.find((c) => c.value === category);
   const isAnnet = category === "annet" || category === "";
   const derivedTitle = isAnnet ? customTitle : (selectedCat?.label ?? "");
-  const canSave = derivedTitle.trim() !== "" && selectedIds.length > 0 && !(hasChildParticipant && !responsibleId);
+  const canSaveEvent = derivedTitle.trim() !== "" && selectedIds.length > 0 && !(hasChildParticipant && !responsibleId);
+  const canSaveTask = taskTitle.trim() !== "";
 
   const toggleMember = (id: string) => {
     setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   };
 
-  const handleSave = async () => {
-    if (!canSave) return;
+  // Lagre frittstående oppgave
+  const handleSaveTask = async () => {
+    if (!canSaveTask) return;
+    await supabase.from("tasks").insert({
+      title: taskTitle.trim(),
+      notes: taskNotes.trim() || null,
+      due_date: date,
+      assigned_to: taskAssignedTo || null,
+      completed: false,
+    });
+    onClose();
+  };
 
-    // Lagre oppgaver parallelt (tittel må være fylt inn)
+  // Lagre aktivitet (+ evt. tilknyttede oppgaver)
+  const handleSaveEvent = async () => {
+    if (!canSaveEvent) return;
     const validTasks = taskDrafts.filter((t) => t.title.trim() !== "");
     if (validTasks.length > 0) {
       await supabase.from("tasks").insert(
@@ -429,7 +451,6 @@ export default function EventModal({ date, members, preSelectedMemberId, onSave,
         }))
       );
     }
-
     onSave({
       title: derivedTitle.trim(),
       end_date: showEndDate && endDate !== date ? endDate : null,
@@ -451,11 +472,94 @@ export default function EventModal({ date, members, preSelectedMemberId, onSave,
         className="bg-white rounded-xl p-5 w-full max-w-md shadow-xl max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Ny aktivitet</h2>
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+            <button
+              onClick={() => setModalMode("event")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                modalMode === "event" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              📅 Aktivitet
+            </button>
+            <button
+              onClick={() => setModalMode("task")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                modalMode === "task" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              ✅ Oppgave
+            </button>
+          </div>
           <span className="text-gray-400 text-sm">{dateDisplay}</span>
         </div>
 
+        {/* ── OPPGAVE-MODUS ── */}
+        {modalMode === "task" && (
+          <>
+            <input
+              type="text"
+              placeholder="Hva skal gjøres?"
+              value={taskTitle}
+              onChange={(e) => setTaskTitle(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSaveTask()}
+              autoFocus
+              className="w-full p-3 rounded-xl bg-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 mb-3 text-sm text-gray-900"
+            />
+            <textarea
+              placeholder="Notater (valgfritt)"
+              value={taskNotes}
+              onChange={(e) => setTaskNotes(e.target.value)}
+              rows={2}
+              className="w-full p-3 rounded-xl bg-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 mb-3 text-sm text-gray-900 resize-none"
+            />
+            <div className="mb-4">
+              <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Tildel til</p>
+              <div className="space-y-2">
+                {members.map((member) => (
+                  <label key={member.id} className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="task-assigned"
+                      value={member.id}
+                      checked={taskAssignedTo === member.id}
+                      onChange={() => setTaskAssignedTo(member.id)}
+                      className="w-4 h-4 accent-blue-500"
+                    />
+                    <div className={`w-2.5 h-2.5 rounded-full ${member.color}`} />
+                    <span className="text-sm text-gray-700">{member.name}</span>
+                  </label>
+                ))}
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="task-assigned"
+                    value=""
+                    checked={taskAssignedTo === ""}
+                    onChange={() => setTaskAssignedTo("")}
+                    className="w-4 h-4 accent-blue-500"
+                  />
+                  <span className="text-sm text-gray-400">Ingen tildelt</span>
+                </label>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={onClose}
+                className="flex-1 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors text-sm text-gray-700">
+                Avbryt
+              </button>
+              <button onClick={handleSaveTask} disabled={!canSaveTask}
+                className="flex-1 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:opacity-40 transition-colors text-sm font-medium text-white">
+                Lagre oppgave
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ── AKTIVITET-MODUS ── */}
+        {modalMode === "event" && (
+          <>
         {/* 1. Kategori */}
         <div className="mb-4">
           <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide font-medium">Hva slags aktivitet?</p>
@@ -485,7 +589,7 @@ export default function EventModal({ date, members, preSelectedMemberId, onSave,
             placeholder={category === "annet" ? "Beskriv aktiviteten..." : "Hva skal skje?"}
             value={customTitle}
             onChange={(e) => setCustomTitle(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
+            onKeyDown={(e) => e.key === "Enter" && handleSaveEvent()}
             autoFocus={isAnnet}
             className="w-full p-2.5 rounded-xl bg-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 mb-4 text-sm text-gray-900"
           />
@@ -573,7 +677,7 @@ export default function EventModal({ date, members, preSelectedMemberId, onSave,
           </div>
         )}
 
-        {/* 8. Oppgaver */}
+        {/* 8. Tilknyttede oppgaver */}
         <div className="mb-4">
           {!showTasks && taskDrafts.length === 0 ? (
             <button
@@ -640,11 +744,13 @@ export default function EventModal({ date, members, preSelectedMemberId, onSave,
             className="flex-1 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors text-sm text-gray-700">
             Avbryt
           </button>
-          <button onClick={handleSave} disabled={!canSave}
+          <button onClick={handleSaveEvent} disabled={!canSaveEvent}
             className="flex-1 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:opacity-40 transition-colors text-sm font-medium text-white">
             Lagre
           </button>
         </div>
+          </>
+        )}
       </div>
     </div>
   );
