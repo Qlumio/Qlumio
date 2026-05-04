@@ -412,12 +412,19 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
                           <div
                             key={i}
                             onClick={() => setModalCell({ memberId: member.id, date: dateStr })}
-                            className={`min-h-28 rounded-lg p-1.5 cursor-pointer transition-colors ${
+                            className={`relative group/cell min-h-28 rounded-lg p-1.5 cursor-pointer transition-colors ${
                               isToday
                                 ? "bg-gray-100 ring-1 ring-blue-500 hover:bg-gray-200"
                                 : "bg-white hover:bg-gray-100"
                             }`}
                           >
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setModalCell({ memberId: member.id, date: dateStr }); }}
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-white/80 hover:bg-blue-500 hover:text-white text-gray-300 hover:text-white flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-all z-10 text-xs font-bold shadow-sm"
+                              title="Legg til aktivitet"
+                            >
+                              +
+                            </button>
                             {visibleEvents.map((event) => (
                               <EventChip
                                 key={event.id}
@@ -489,12 +496,19 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
                           <div
                             key={i}
                             onClick={() => setModalCell({ memberId: member.id, date: dateStr })}
-                            className={`min-h-40 rounded-lg p-2 cursor-pointer transition-colors ${
+                            className={`relative group/cell min-h-40 rounded-lg p-2 cursor-pointer transition-colors ${
                               isToday
                                 ? "bg-gray-100 ring-1 ring-blue-500 hover:bg-gray-200"
                                 : "bg-white hover:bg-gray-100"
                             }`}
                           >
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setModalCell({ memberId: member.id, date: dateStr }); }}
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-white/80 hover:bg-blue-500 text-gray-300 hover:text-white flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-all z-10 text-xs font-bold shadow-sm"
+                              title="Legg til aktivitet"
+                            >
+                              +
+                            </button>
                             {cellEvents.map((event) => (
                               <EventChip
                                 key={event.id}
