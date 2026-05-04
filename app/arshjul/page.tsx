@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 import ArshjulView from "@/components/ArshjulView";
 import type { Metadata } from "next";
 import type { Event } from "@/lib/types";
+import { ARSHJUL_CATEGORIES } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Årshjul – Qlumio",
@@ -12,11 +13,13 @@ export default async function ArshjulPage() {
   const fromStr = `${year}-01-01`;
   const toStr = `${year}-12-31`;
 
+  const arshjulValues = ARSHJUL_CATEGORIES.map((c) => c.value);
+
   const [{ data: eventsRaw }, { data: members }] = await Promise.all([
     supabase
       .from("events")
       .select("*, event_participants(family_member_id)")
-      .not("category", "is", null)
+      .in("category", arshjulValues)
       .eq("recurring", false)
       .gte("date", fromStr)
       .lte("date", toStr)

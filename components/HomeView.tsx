@@ -12,7 +12,6 @@ const ALL_MODULES = [
   { href: "/aktiviteter", title: "Aktiviteter", icon: "📅", roles: ["admin", "member"], description: "Kalender og familieaktiviteter" },
   { href: "/oppgaver", title: "Oppgaver", icon: "✅", roles: ["admin", "member"], description: "Gjøremål og praktiske oppgaver" },
   { href: "/innkjop", title: "Innkjøp", icon: "🛒", roles: ["admin", "member"], description: "Handlelister og innkjøp" },
-  { href: "/arshjul", title: "Årshjul", icon: "🗓️", roles: ["admin", "member"], description: "Faste hendelser gjennom året" },
   { href: "/eiendeler", title: "Eiendeler", icon: "🔧", roles: ["admin"], description: "Oversikt over eiendeler og utstyr" },
   { href: "/okonomi", title: "Økonomi", icon: "💰", roles: ["admin"], description: "Inntekter, utgifter og budsjett" },
   { href: "/planlagte-kostnader", title: "Planlagte kostnader", icon: "📋", roles: ["admin"], description: "Fremtidige og planlagte utgifter" },

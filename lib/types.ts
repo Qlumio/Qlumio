@@ -62,14 +62,25 @@ export type Event = {
   participant_ids: string[]; // fra event_participants
 };
 
-export const ARSHJUL_CATEGORIES = [
+// Alle kategorier – vises ved registrering av aktivitet
+export const EVENT_CATEGORIES = [
+  { value: "trening", label: "Trening", icon: "🏋️" },
+  { value: "sport", label: "Sport", icon: "⚽" },
+  { value: "skole", label: "Skole", icon: "🏫" },
+  { value: "sosialt", label: "Sosialt", icon: "🎉" },
+  { value: "ferie", label: "Ferie/Reise", icon: "✈️" },
+  { value: "helse", label: "Helse", icon: "🏥" },
   { value: "kjøretøy", label: "Kjøretøy", icon: "🚗" },
   { value: "økonomi", label: "Økonomi", icon: "💰" },
-  { value: "helse", label: "Helse", icon: "🏥" },
-  { value: "fritid", label: "Fritid", icon: "⛵" },
-  { value: "familie", label: "Familie", icon: "👨‍👩‍👧" },
   { value: "eiendom", label: "Eiendom", icon: "🏠" },
+  { value: "familie", label: "Familie", icon: "👨‍👩‍👧" },
+  { value: "annet", label: "Annet", icon: "📦" },
 ] as const;
+
+// Kategorier som vises i årshjulet (ikke dagligdagse ting som trening/skole)
+export const ARSHJUL_CATEGORIES = EVENT_CATEGORIES.filter((c) =>
+  ["helse", "kjøretøy", "økonomi", "eiendom", "familie", "ferie"].includes(c.value)
+);
 
 export type Task = {
   id: string;

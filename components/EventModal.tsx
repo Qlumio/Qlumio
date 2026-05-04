@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { FamilyMember } from "@/lib/types";
-import { ARSHJUL_CATEGORIES } from "@/lib/types";
+import { EVENT_CATEGORIES } from "@/lib/types";
 
 const DAY_NAMES = ["Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag"];
 
@@ -181,7 +181,7 @@ export default function EventModal({
             >
               Ingen
             </button>
-            {ARSHJUL_CATEGORIES.map((cat) => (
+            {EVENT_CATEGORIES.map((cat) => (
               <button
                 key={cat.value}
                 type="button"
