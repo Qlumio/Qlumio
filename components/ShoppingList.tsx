@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { ShoppingItem } from "@/lib/types";
 
@@ -10,6 +10,7 @@ export default function ShoppingList({
 }: {
   initialItems: ShoppingItem[];
 }) {
+  const router = useRouter();
   const [items, setItems] = useState<ShoppingItem[]>(initialItems);
   const [newItemName, setNewItemName] = useState("");
   const [addedBy, setAddedBy] = useState("");
@@ -95,11 +96,11 @@ export default function ShoppingList({
       <div className="max-w-lg mx-auto p-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8 pt-4">
-          <Link href="/" className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-600 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
-          </Link>
+          </button>
           <div className="flex items-center gap-3">
             <div className="bg-green-500/10 text-green-600 p-2.5 rounded-xl">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

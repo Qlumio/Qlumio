@@ -19,19 +19,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUserState] = useState<FamilyMember | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const stored = localStorage.getItem("qlumio_current_user");
     if (stored) {
       try {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCurrentUserState(JSON.parse(stored));
       } catch {
         localStorage.removeItem("qlumio_current_user");
       }
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoaded(true);
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const setCurrentUser = (member: FamilyMember | null) => {
     setCurrentUserState(member);

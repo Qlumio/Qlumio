@@ -53,6 +53,7 @@ export default function EventModal({
     childMembers.some((c) => c.id === id)
   );
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (hasChildParticipant && !responsibleId && parentMembers.length > 0) {
       setResponsibleId(parentMembers[0].id);
@@ -62,6 +63,7 @@ export default function EventModal({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasChildParticipant]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const toggleMember = (id: string) => {
     setSelectedIds((prev) =>

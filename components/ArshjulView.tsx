@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useUser } from "@/lib/userContext";
@@ -146,11 +145,11 @@ export default function ArshjulView({ events: initialEvents, members, year }: Pr
         {/* Header */}
         <div className="flex items-center justify-between pt-6 pb-4">
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-gray-400 hover:text-gray-700 transition-colors">
+            <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-700 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
-            </Link>
+            </button>
             <div>
               <h1 className="text-xl font-bold text-gray-900">Årshjul</h1>
               <p className="text-xs text-gray-400">{year}</p>

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { useUser } from "@/lib/userContext";
 import ProfileSelector from "@/components/ProfileSelector";
 import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
@@ -21,9 +20,6 @@ const ALL_MODULES = [
 
 // ─── Hjelpefunksjoner ──────────────────────────────────────────────────────
 
-const DAY_NAMES_SHORT = ["Søn", "Man", "Tir", "Ons", "Tor", "Fre", "Lør"];
-const DAY_NAMES_FULL = ["Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag"];
-const MONTH_NAMES = ["jan", "feb", "mar", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "des"];
 
 function formatDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -63,16 +59,6 @@ function getEventsForDate(
   });
 }
 
-function getDatesRange(fromStr: string, days: number): string[] {
-  const result: string[] = [];
-  const d = new Date(fromStr + "T00:00:00");
-  for (let i = 0; i < days; i++) {
-    result.push(formatDate(d));
-    d.setDate(d.getDate() + 1);
-  }
-  return result;
-}
-
 // ─── Props ─────────────────────────────────────────────────────────────────
 
 type Props = {
@@ -87,7 +73,6 @@ type Props = {
 
 export default function HomeView({ members, events, exceptions, tasks, todayStr }: Props) {
   const { currentUser, setCurrentUser, isLoaded } = useUser();
-  const [completingId, setCompletingId] = useState<string | null>(null);
 
   if (!isLoaded) return null;
   if (!currentUser) return <ProfileSelector members={members} />;
@@ -102,37 +87,8 @@ export default function HomeView({ members, events, exceptions, tasks, todayStr 
     return mod.roles.includes(freshUser.permission_level);
   });
 
-  // Events denne uken (man–søn) og neste uke
   const todayDate = new Date(todayStr + "T00:00:00");
-  const dayOfWeek = todayDate.getDay(); // 0=søn
-  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const thisMonday = new Date(todayDate);
-  thisMonday.setDate(todayDate.getDate() - daysFromMonday);
-  const thisMondayStr = formatDate(thisMonday);
-
-  const nextMonday = new Date(thisMonday);
-  nextMonday.setDate(thisMonday.getDate() + 7);
-  const nextMondayStr = formatDate(nextMonday);
-
-  const thisWeekDates = getDatesRange(thisMondayStr, 7);
-  const nextWeekDates = getDatesRange(nextMondayStr, 7);
-
   const filterMemberId = isAdmin ? null : freshUser.id;
-
-  // Bygg dagsoversikt
-  type DayEvents = { dateStr: string; events: Event[] };
-
-  const thisWeekDays: DayEvents[] = thisWeekDates.map((d) => ({
-    dateStr: d,
-    events: getEventsForDate(events, exceptions, d, filterMemberId),
-  }));
-
-  const nextWeekDays: DayEvents[] = nextWeekDates.map((d) => ({
-    dateStr: d,
-    events: getEventsForDate(events, exceptions, d, filterMemberId),
-  }));
-
-  const hasNextWeekEvents = nextWeekDays.some((d) => d.events.length > 0);
 
   // Oppgaver for denne brukeren
   const myTasks = tasks.filter((t) => {
@@ -143,36 +99,8 @@ export default function HomeView({ members, events, exceptions, tasks, todayStr 
   const overdueTasks = pendingTasks.filter(
     (t) => t.due_date && t.due_date < todayStr
   );
-  const upcomingTasks = pendingTasks.filter(
-    (t) => !t.due_date || t.due_date >= todayStr
-  );
 
-  const toggleTask = async (taskId: string, completed: boolean) => {
-    setCompletingId(taskId);
-    const { supabase: sb } = await import("@/lib/supabase");
-    await sb.from("tasks").update({
-      completed,
-      completed_at: completed ? new Date().toISOString() : null,
-    }).eq("id", taskId);
-    setCompletingId(null);
-    window.location.reload();
-  };
-
-  const formatDueDate = (due: string | null): string | null => {
-    if (!due) return null;
-    const d = new Date(due + "T00:00:00");
-    if (due === todayStr) return "i dag";
-    const tomorrow = new Date(todayDate);
-    tomorrow.setDate(todayDate.getDate() + 1);
-    if (due === formatDate(tomorrow)) return "i morgen";
-    if (due < todayStr) {
-      const diff = Math.round((todayDate.getTime() - d.getTime()) / 86400000);
-      return `${diff} dag${diff === 1 ? "" : "er"} siden`;
-    }
-    return `${d.getDate()}. ${MONTH_NAMES[d.getMonth()]}`;
-  };
-
-  // I dag-events og forfalt-oppgaver for kompakt snipp
+  // I dag/i morgen-events for kompakt snipp
   const todayEvents = getEventsForDate(events, exceptions, todayStr, filterMemberId);
   const tomorrowDate = new Date(todayDate);
   tomorrowDate.setDate(todayDate.getDate() + 1);
@@ -321,51 +249,3 @@ export default function HomeView({ members, events, exceptions, tasks, todayStr 
   );
 }
 
-// ─── TaskRow ───────────────────────────────────────────────────────────────
-
-function TaskRow({
-  task,
-  members,
-  dueLabel,
-  isOverdue,
-  completing,
-  onToggle,
-}: {
-  task: Task;
-  members: FamilyMember[];
-  dueLabel: string | null;
-  isOverdue: boolean;
-  completing: boolean;
-  onToggle: () => void;
-}) {
-  const assignee = task.assigned_to ? members.find((m) => m.id === task.assigned_to) : null;
-  return (
-    <div className="flex items-center gap-3 px-4 py-2.5">
-      <button
-        onClick={onToggle}
-        disabled={completing}
-        className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-          completing ? "border-green-400 bg-green-100" : "border-gray-300 hover:border-green-400"
-        }`}
-      >
-        {completing && <span className="text-green-500 text-xs">✓</span>}
-      </button>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-gray-800 truncate">{task.title}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          {dueLabel && (
-            <span className={`text-xs ${isOverdue ? "text-red-500 font-medium" : "text-gray-400"}`}>
-              {isOverdue ? "⚠️ " : ""}{dueLabel}
-            </span>
-          )}
-          {assignee && (
-            <div className="flex items-center gap-1">
-              <div className={`w-2 h-2 rounded-full ${assignee.color}`} />
-              <span className="text-xs text-gray-400">{assignee.name}</span>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}

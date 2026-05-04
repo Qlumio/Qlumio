@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -91,6 +91,7 @@ const Tag = ({ children }: { children: React.ReactNode }) => (
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function LFPView({ insurances: init_i, loans: init_l, pensions: init_p }: Props) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("forsikring");
   const [insurances, setInsurances] = useState<Insurance[]>(init_i);
   const [loans, setLoans] = useState<Loan[]>(init_l);
@@ -252,8 +253,6 @@ export default function LFPView({ insurances: init_i, loans: init_l, pensions: i
     );
   };
 
-  const tabLabel = activeTab === "forsikring" ? "Forsikringer" : activeTab === "lan" ? "Lån" : "Pensjon";
-
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -262,12 +261,12 @@ export default function LFPView({ insurances: init_i, loans: init_l, pensions: i
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white">
+            <button onClick={() => router.back()} className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
-              Hjem
-            </Link>
+              Tilbake
+            </button>
             <div className="w-px h-5 bg-gray-100" />
             <h1 className="text-lg font-semibold">Lån, forsikringer og pensjon</h1>
           </div>

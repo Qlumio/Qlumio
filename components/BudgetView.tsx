@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type Item = {
@@ -86,6 +87,7 @@ function fmt(n: number): string {
 }
 
 export default function BudgetView({ categories: initialCategories, overrides: initialOverrides, maintenanceTasks, plannedExpenses }: Props) {
+  const router = useRouter();
   const monthCols = getMonthCols();
   const currentYear = new Date().getFullYear();
 
@@ -111,7 +113,7 @@ export default function BudgetView({ categories: initialCategories, overrides: i
   const toggleCat = (id: string) =>
     setExpandedCats((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
       return next;
     });
 
@@ -301,15 +303,15 @@ export default function BudgetView({ categories: initialCategories, overrides: i
       {/* Header */}
       <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link
-            href="/"
+          <button
+            onClick={() => router.back()}
             className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
-            Hjem
-          </Link>
+            Tilbake
+          </button>
           <div className="w-px h-5 bg-gray-100" />
           <h1 className="text-lg font-semibold">Familie økonomi</h1>
         </div>

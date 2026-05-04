@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { FamilyMember } from "@/lib/types";
 
@@ -44,7 +43,6 @@ type Props = {
 };
 
 export default function MemberSettings({ members: initialMembers }: Props) {
-  const router = useRouter();
   const [members, setMembers] = useState<FamilyMember[]>(initialMembers);
 
   // --- Legg til nytt medlem ---

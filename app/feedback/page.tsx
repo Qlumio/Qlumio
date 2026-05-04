@@ -39,11 +39,12 @@ export default function FeedbackPage() {
     setLoading(false);
   };
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchFeedback();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSubmit = async () => {
     if (!name.trim() || !message.trim()) return;
