@@ -91,6 +91,17 @@ export default function BudgetView({ categories: initialCategories, overrides: i
   const monthCols = getMonthCols();
   const currentYear = new Date().getFullYear();
 
+  // Faner
+  const [activeTab, setActiveTab] = useState<"actual" | "simulated">("actual");
+
+  // Slett-bekreftelse
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Simulert budsjett – justeringer per kategori (i prosent)
+  const [simAdjustments, setSimAdjustments] = useState<Record<string, number>>({});
+  const [globalAdj, setGlobalAdj] = useState<number>(0);
+
   const [categories, setCategories] = useState<Category[]>(initialCategories);
 
   const [defaults, setDefaults] = useState<Record<string, number>>(() => {
@@ -205,6 +216,19 @@ export default function BudgetView({ categories: initialCategories, overrides: i
     return inc - exp - getMaintenanceAnnualTotal() - getPlannedAnnualTotal();
   };
 
+  // --- Slett alt grunnlag ---
+  const handleDeleteAll = async () => {
+    setDeleting(true);
+    await supabase.from("budget_overrides").delete().neq("item_id", "00000000-0000-0000-0000-000000000000");
+    await supabase.from("budget_items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    await supabase.from("budget_categories").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    setCategories([]);
+    setDefaults({});
+    setOverrides({});
+    setDeleting(false);
+    setConfirmDelete(false);
+  };
+
   // --- Prognose: anbefalt månedlig avsetning ---
   const getMonthlyRecommendation = (): number => {
     const today = new Date();
@@ -301,29 +325,188 @@ export default function BudgetView({ categories: initialCategories, overrides: i
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Tilbake
-          </button>
-          <div className="w-px h-5 bg-gray-100" />
-          <h1 className="text-lg font-semibold">Familie økonomi</h1>
+      <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              Tilbake
+            </button>
+            <div className="w-px h-5 bg-gray-100" />
+            <h1 className="text-lg font-semibold">Familie økonomi</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400 bg-white px-2 py-1 rounded">{currentYear}</span>
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-white"
+              title="Slett alt grunnlag"
+            >
+              🗑 Slett alt
+            </button>
+          </div>
         </div>
-        <span className="text-xs text-gray-400 bg-white px-2 py-1 rounded">{currentYear}</span>
+
+        {/* Faner */}
+        <div className="flex gap-1">
+          <button
+            onClick={() => setActiveTab("actual")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "actual" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+          >
+            Faktisk budsjett
+          </button>
+          <button
+            onClick={() => setActiveTab("simulated")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeTab === "simulated" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+          >
+            🎯 Simulert budsjett
+          </button>
+        </div>
       </div>
 
-      <p className="px-4 py-2 text-xs text-gray-400">
-        Klikk et beløp for å redigere. Første verdi du setter på en post gjelder alle måneder.{" "}
-        <span className="text-blue-500">Blå tall</span> er månedlige unntak.
-      </p>
+      {/* Bekreft slett-modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
+            <h2 className="text-lg font-semibold mb-2">Slett alt grunnlag?</h2>
+            <p className="text-sm text-gray-500 mb-5">Dette sletter alle kategorier, poster og månedlige unntak permanent. Engangsutgifter og vedlikeholdsoppgaver beholdes.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmDelete(false)} className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-sm">Avbryt</button>
+              <button onClick={handleDeleteAll} disabled={deleting}
+                className="flex-1 py-2 rounded-lg bg-red-500 hover:bg-red-600 disabled:opacity-40 transition-colors text-sm font-medium text-white">
+                {deleting ? "Sletter…" : "Ja, slett alt"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      <div className="overflow-x-auto">
+      {/* Simulert budsjett-fane */}
+      {activeTab === "simulated" && (
+        <div className="p-4 max-w-2xl mx-auto">
+          <div className="mb-5 bg-white rounded-xl p-4">
+            <p className="text-sm text-gray-500 mb-3">Simuler effekten av prosentvise endringer per kategori. Tallene hentes fra faktisk budsjett som grunnlag.</p>
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-gray-600 whitespace-nowrap">Global justering:</label>
+              <input
+                type="number"
+                value={globalAdj}
+                onChange={(e) => setGlobalAdj(parseFloat(e.target.value) || 0)}
+                className="w-24 p-2 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm text-center"
+                placeholder="0"
+              />
+              <span className="text-sm text-gray-400">%</span>
+              <button
+                onClick={() => {
+                  const newAdj: Record<string, number> = {};
+                  expenseCats.forEach((c) => { newAdj[c.id] = globalAdj; });
+                  setSimAdjustments(newAdj);
+                }}
+                className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded-lg transition-colors"
+              >
+                Bruk på alle
+              </button>
+              <button
+                onClick={() => setSimAdjustments({})}
+                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs rounded-lg transition-colors"
+              >
+                Nullstill
+              </button>
+            </div>
+          </div>
+
+          {categories.length === 0 && (
+            <p className="text-center text-gray-400 text-sm py-8">Ingen budsjettdata å simulere. Legg inn data i &quot;Faktisk budsjett&quot; først.</p>
+          )}
+
+          <div className="space-y-2">
+            {[...(incomeCat ? [incomeCat] : []), ...expenseCats].map((cat) => {
+              const baseMonthly = getCatAnnualTotal(cat) / 12;
+              const adj = simAdjustments[cat.id] ?? 0;
+              const simMonthly = baseMonthly * (1 + adj / 100);
+              const simAnnual = simMonthly * 12;
+              const diff = simAnnual - getCatAnnualTotal(cat);
+              const isIncome = cat.type === "income";
+
+              return (
+                <div key={cat.id} className="bg-white rounded-xl p-4 flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-gray-700">{cat.name}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      Grunnlag: {Math.round(baseMonthly).toLocaleString("nb-NO")} kr/mnd · {getCatAnnualTotal(cat).toLocaleString("nb-NO")} kr/år
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <input
+                      type="number"
+                      value={simAdjustments[cat.id] ?? ""}
+                      onChange={(e) => setSimAdjustments((prev) => ({ ...prev, [cat.id]: parseFloat(e.target.value) || 0 }))}
+                      placeholder="0"
+                      className="w-20 p-1.5 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm text-center"
+                    />
+                    <span className="text-xs text-gray-400">%</span>
+                  </div>
+                  <div className="text-right flex-shrink-0 min-w-[120px]">
+                    <div className="text-sm font-semibold text-gray-900">{Math.round(simMonthly).toLocaleString("nb-NO")} kr/mnd</div>
+                    <div className={`text-xs mt-0.5 ${diff === 0 ? "text-gray-400" : isIncome ? (diff > 0 ? "text-green-600" : "text-red-500") : (diff > 0 ? "text-red-500" : "text-green-600")}`}>
+                      {diff === 0 ? "Ingen endring" : `${diff > 0 ? "+" : ""}${Math.round(diff).toLocaleString("nb-NO")} kr/år`}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Simulert totaloversikt */}
+          {categories.length > 0 && (() => {
+            const simIncome = incomeCat ? (getCatAnnualTotal(incomeCat) / 12) * (1 + (simAdjustments[incomeCat.id] ?? 0) / 100) * 12 : 0;
+            const simExpenses = expenseCats.reduce((sum, c) => {
+              const base = getCatAnnualTotal(c);
+              return sum + base * (1 + (simAdjustments[c.id] ?? 0) / 100);
+            }, 0);
+            const simRest = simIncome - simExpenses;
+            const actualRest = getRestAnnual();
+            const restDiff = simRest - actualRest;
+
+            return (
+              <div className="mt-4 bg-emerald-50 rounded-xl p-4 border border-emerald-100">
+                <div className="text-sm font-bold text-gray-700 mb-2">Simulert årsresultat</div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-500">Simulert inntekt/år:</span>
+                  <span className="font-medium">{Math.round(simIncome).toLocaleString("nb-NO")} kr</span>
+                </div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-gray-500">Simulerte utgifter/år:</span>
+                  <span className="font-medium">{Math.round(simExpenses).toLocaleString("nb-NO")} kr</span>
+                </div>
+                <div className="flex justify-between text-sm font-bold border-t border-emerald-200 pt-2">
+                  <span>Simulert rest:</span>
+                  <span className={simRest >= 0 ? "text-green-600" : "text-red-500"}>{Math.round(simRest).toLocaleString("nb-NO")} kr</span>
+                </div>
+                {restDiff !== 0 && (
+                  <div className={`text-xs mt-1 text-right ${restDiff > 0 ? "text-green-600" : "text-red-500"}`}>
+                    {restDiff > 0 ? "+" : ""}{Math.round(restDiff).toLocaleString("nb-NO")} kr vs. faktisk budsjett
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {activeTab === "actual" && (
+        <p className="px-4 py-2 text-xs text-gray-400">
+          Klikk et beløp for å redigere. Første verdi du setter på en post gjelder alle måneder.{" "}
+          <span className="text-blue-500">Blå tall</span> er månedlige unntak.
+        </p>
+      )}
+
+      {activeTab === "actual" && <div className="overflow-x-auto">
         <table className="w-full border-collapse" style={{ minWidth: "640px" }}>
           <thead>
             <tr className="border-b border-gray-200">
@@ -633,7 +816,7 @@ export default function BudgetView({ categories: initialCategories, overrides: i
             </tr>
           </tbody>
         </table>
-      </div>
+      </div>}
     </main>
   );
 }

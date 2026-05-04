@@ -6,7 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { Asset } from "@/lib/types";
 
-const ASSET_TYPES = [
+export const ASSET_TYPES = [
   { value: "hus", label: "Hus", emoji: "🏠" },
   { value: "bil", label: "Bil", emoji: "🚗" },
   { value: "hytte", label: "Hytte", emoji: "🏡" },
@@ -60,7 +60,7 @@ export default function AssetList({ assets }: Props) {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.back()}
+              onClick={() => router.push("/")}
               className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
