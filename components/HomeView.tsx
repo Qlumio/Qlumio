@@ -8,7 +8,7 @@ import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
 // ─── Modul-konfigurasjon ───────────────────────────────────────────────────
 
 const ALL_MODULES = [
-  { href: "/aktiviteter", title: "Aktiviteter", icon: "📅", roles: ["admin", "member"], description: "Kalender og familieaktiviteter" },
+  { href: "/aktiviteter", title: "Kalender", icon: "📅", roles: ["admin", "member"], description: "Kalender og familieaktiviteter" },
   { href: "/oppgaver", title: "Oppgaver", icon: "✅", roles: ["admin", "member"], description: "Gjøremål og praktiske oppgaver" },
   { href: "/innkjop", title: "Innkjøp", icon: "🛒", roles: ["admin", "member"], description: "Handlelister og innkjøp" },
   { href: "/eiendeler", title: "Eiendeler", icon: "🔧", roles: ["admin"], description: "Oversikt over eiendeler og utstyr" },

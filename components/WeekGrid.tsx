@@ -8,6 +8,7 @@ import type { FamilyMember, Event, EventException } from "@/lib/types";
 import { getMondayOfWeek, getWeekDates, formatDate, getWeekNumber } from "@/lib/dates";
 import EventModal from "@/components/EventModal";
 import EventActionsModal from "@/components/EventActionsModal";
+import { EVENT_CATEGORIES } from "@/lib/types";
 
 const DAY_NAMES = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
 const MONTH_NAMES = ["Januar", "Februar", "Mars", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Desember"];
@@ -38,10 +39,90 @@ function formatTime(t: string | null): string | null {
   return t.slice(0, 5);
 }
 
+function getCategoryEmoji(category: string | null): string | null {
+  if (!category) return null;
+  return EVENT_CATEGORIES.find((c) => c.value === category)?.icon ?? null;
+}
+
+// ── EventChip – gjenbrukbar chip for enkeltaktivitet ──────────────────────
+function EventChip({
+  event,
+  dateStr,
+  member,
+  members,
+  chipColor,
+  onOpen,
+  solo = false,
+}: {
+  event: Event;
+  dateStr: string;
+  member: FamilyMember;
+  members: FamilyMember[];
+  chipColor: string;
+  onOpen: (event: Event) => void;
+  solo?: boolean;
+}) {
+  const isFirstDay = event.date === dateStr;
+  const isLastDay = (event.end_date ?? event.date) === dateStr;
+  const st = formatTime(event.start_time);
+  const et = formatTime(event.end_time);
+  const emoji = getCategoryEmoji(event.category ?? null);
+
+  const responsible = event.responsible_member_id
+    ? members.find((m) => m.id === event.responsible_member_id)
+    : null;
+  const isChildCol = member.role === "child";
+  const isResponsibleCol = event.responsible_member_id === member.id;
+  const childParticipants = isResponsibleCol
+    ? members.filter((m) => m.role === "child" && event.participant_ids.includes(m.id))
+    : [];
+
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); onOpen(event); }}
+      className={`${chipColor} rounded-md p-2 text-gray-800 mb-1.5 cursor-pointer hover:opacity-80 transition-opacity`}
+    >
+      {(st || et) && (
+        <div className="text-xs text-gray-500 leading-tight mb-0.5">
+          {isFirstDay && st && <span>{st}</span>}
+          {isFirstDay && st && isLastDay && et && <span> – {et}</span>}
+          {isFirstDay && st && !isLastDay && <span> →</span>}
+          {!isFirstDay && isLastDay && et && <span>→ {et}</span>}
+        </div>
+      )}
+      <div className={`flex items-start gap-1 ${solo ? "text-sm" : "text-xs"} font-semibold leading-tight`}>
+        {emoji && <span className={`${solo ? "text-base" : "text-sm"} flex-shrink-0 leading-none`}>{emoji}</span>}
+        <span className="truncate">
+          {event.title}
+          {event.recurring && <span className="ml-1 opacity-50 text-[9px]">↻</span>}
+          {event.end_date && !event.recurring && <span className="ml-1 opacity-50 text-[9px]">⟷</span>}
+        </span>
+      </div>
+      {isChildCol && responsible && (
+        <div className="flex items-center gap-1 mt-0.5">
+          <div className={`w-2 h-2 rounded-full ${responsible.color} opacity-80`} />
+          <span className="text-[9px] opacity-70 leading-tight truncate">{responsible.name}</span>
+        </div>
+      )}
+      {isResponsibleCol && childParticipants.length > 0 && (
+        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+          {childParticipants.map((child) => (
+            <div key={child.id} className="flex items-center gap-0.5">
+              <div className={`w-2 h-2 rounded-full ${child.color} opacity-80`} />
+              <span className="text-[9px] opacity-70 leading-tight">{child.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function WeekGrid({ members, events, exceptions, currentMonday }: Props) {
   const router = useRouter();
   const [modalCell, setModalCell] = useState<ModalCell>(null);
   const [activeEvent, setActiveEvent] = useState<ActiveEvent>(null);
+  const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null);
 
   const monday = new Date(currentMonday + "T00:00:00");
   const weekDates = getWeekDates(monday);
@@ -197,7 +278,7 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
             Tilbake
           </button>
           <div className="w-px h-5 bg-gray-100" />
-          <h1 className="text-lg font-semibold">Aktiviteter</h1>
+          <h1 className="text-lg font-semibold">Kalender</h1>
         </div>
         <div className="flex items-center gap-2">
         <Link
@@ -285,120 +366,154 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
           {/* Ukesvisning */}
           <div className="overflow-x-auto">
             <div className="min-w-[700px]">
-              {/* Datoheader */}
-              <div className="grid grid-cols-[150px_repeat(7,1fr)] gap-2 mb-2">
-                <div />
-                {weekDates.map((date, i) => {
-                  const isToday = formatDate(date) === todayStr;
-                  return (
-                    <div key={i} className="text-center">
-                      <div className="text-xs text-gray-400 uppercase tracking-wide">{DAY_NAMES[i]}</div>
-                      <div className={`text-sm font-semibold mt-0.5 ${isToday ? "text-blue-500" : "text-gray-700"}`}>
-                        {date.getDate()}.{date.getMonth() + 1}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
 
-              {/* Rad per familiemedlem */}
-              {members.map((member) => (
-                <div key={member.id} className="grid grid-cols-[150px_repeat(7,1fr)] gap-2 mb-2">
-                  <div className="flex items-center gap-2 text-sm pr-2">
-                    <div className={`w-3 h-3 rounded-full flex-shrink-0 ${member.color}`} />
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{member.name}</div>
-                    </div>
+              {/* ── Familie-visning (alle) ── */}
+              {!focusedMemberId && (
+                <>
+                  {/* Datoheader */}
+                  <div className="grid grid-cols-[150px_repeat(7,1fr)] gap-2 mb-2">
+                    {/* Klikk "Familie" for å reset (her er det ingen fokus, men vi viser en tom celle) */}
+                    <div />
+                    {weekDates.map((date, i) => {
+                      const isToday = formatDate(date) === todayStr;
+                      return (
+                        <div key={i} className="text-center">
+                          <div className="text-xs text-gray-400 uppercase tracking-wide">{DAY_NAMES[i]}</div>
+                          <div className={`text-sm font-semibold mt-0.5 ${isToday ? "text-blue-500" : "text-gray-700"}`}>
+                            {date.getDate()}.{date.getMonth() + 1}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
 
-                  {weekDates.map((date, i) => {
-                    const dateStr = formatDate(date);
-                    const isToday = dateStr === todayStr;
-                    const cellEvents = getEventsForCell(member.id, dateStr);
-                    const visibleEvents = cellEvents.slice(0, MAX_VISIBLE_EVENTS);
-                    const hiddenCount = cellEvents.length - MAX_VISIBLE_EVENTS;
-
-                    return (
-                      <div
-                        key={i}
-                        onClick={() => setModalCell({ memberId: member.id, date: dateStr })}
-                        className={`min-h-28 rounded-lg p-1.5 cursor-pointer transition-colors ${
-                          isToday
-                            ? "bg-gray-100 ring-1 ring-blue-500 hover:bg-gray-200"
-                            : "bg-white hover:bg-gray-100"
-                        }`}
+                  {/* Rad per familiemedlem */}
+                  {members.map((member) => (
+                    <div key={member.id} className="grid grid-cols-[150px_repeat(7,1fr)] gap-2 mb-2">
+                      <button
+                        onClick={() => setFocusedMemberId(member.id)}
+                        className="flex items-center gap-2 text-sm pr-2 rounded-lg hover:bg-white px-2 py-1 transition-colors text-left group"
+                        title={`Vis kun ${member.name}`}
                       >
-                        {visibleEvents.map((event) => {
-                          const isFirstDay = event.date === dateStr;
-                          const isLastDay = (event.end_date ?? event.date) === dateStr;
-                          const st = formatTime(event.start_time);
-                          const et = formatTime(event.end_time);
+                        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${member.color}`} />
+                        <div className="min-w-0">
+                          <div className="font-medium truncate group-hover:text-blue-600 transition-colors">{member.name}</div>
+                        </div>
+                      </button>
 
-                          const responsible = event.responsible_member_id
-                            ? members.find((m) => m.id === event.responsible_member_id)
-                            : null;
-                          const isChildCol = member.role === "child";
-                          // Foresatt ser barnets aktivitet – vis hvilke barn som deltar
-                          const isResponsibleCol = event.responsible_member_id === member.id;
-                          const childParticipants = isResponsibleCol
-                            ? members.filter(
-                                (m) => m.role === "child" && event.participant_ids.includes(m.id)
-                              )
-                            : [];
+                      {weekDates.map((date, i) => {
+                        const dateStr = formatDate(date);
+                        const isToday = dateStr === todayStr;
+                        const cellEvents = getEventsForCell(member.id, dateStr);
+                        const visibleEvents = cellEvents.slice(0, MAX_VISIBLE_EVENTS);
+                        const hiddenCount = cellEvents.length - MAX_VISIBLE_EVENTS;
 
-                          return (
-                            <div
-                              key={event.id}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveEvent({ event, date: dateStr });
-                              }}
-                              className={`${toChipColor(member.color)} rounded-md p-2 text-gray-800 mb-1.5 cursor-pointer hover:opacity-80 transition-opacity`}
-                            >
-                              {(st || et) && (
-                                <div className="text-xs text-gray-500 leading-tight mb-0.5">
-                                  {isFirstDay && st && <span>{st}</span>}
-                                  {isFirstDay && st && isLastDay && et && <span> – {et}</span>}
-                                  {isFirstDay && st && !isLastDay && <span> →</span>}
-                                  {!isFirstDay && isLastDay && et && <span>→ {et}</span>}
-                                </div>
-                              )}
-                              <div className="text-sm font-semibold leading-tight truncate">
-                                {event.title}
-                                {event.recurring && <span className="ml-1 opacity-50 text-[9px]">↻</span>}
-                                {event.end_date && !event.recurring && (
-                                  <span className="ml-1 opacity-50 text-[9px]">⟷</span>
-                                )}
-                              </div>
-                              {isChildCol && responsible && (
-                                <div className="flex items-center gap-1 mt-0.5">
-                                  <div className={`w-2 h-2 rounded-full ${responsible.color} opacity-80`} />
-                                  <span className="text-[9px] opacity-70 leading-tight truncate">{responsible.name}</span>
-                                </div>
-                              )}
-                              {isResponsibleCol && childParticipants.length > 0 && (
-                                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                                  {childParticipants.map((child) => (
-                                    <div key={child.id} className="flex items-center gap-0.5">
-                                      <div className={`w-2 h-2 rounded-full ${child.color} opacity-80`} />
-                                      <span className="text-[9px] opacity-70 leading-tight">{child.name}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                        {hiddenCount > 0 && (
-                          <div className="text-xs text-gray-400 pl-1 mt-0.5">
-                            +{hiddenCount} mer
+                        return (
+                          <div
+                            key={i}
+                            onClick={() => setModalCell({ memberId: member.id, date: dateStr })}
+                            className={`min-h-28 rounded-lg p-1.5 cursor-pointer transition-colors ${
+                              isToday
+                                ? "bg-gray-100 ring-1 ring-blue-500 hover:bg-gray-200"
+                                : "bg-white hover:bg-gray-100"
+                            }`}
+                          >
+                            {visibleEvents.map((event) => (
+                              <EventChip
+                                key={event.id}
+                                event={event}
+                                dateStr={dateStr}
+                                member={member}
+                                members={members}
+                                chipColor={toChipColor(member.color)}
+                                onOpen={(ev) => setActiveEvent({ event: ev, date: dateStr })}
+                              />
+                            ))}
+                            {hiddenCount > 0 && (
+                              <div className="text-xs text-gray-400 pl-1 mt-0.5">+{hiddenCount} mer</div>
+                            )}
                           </div>
-                        )}
+                        );
+                      })}
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* ── Solo-visning (ett familiemedlem) ── */}
+              {focusedMemberId && (() => {
+                const member = members.find((m) => m.id === focusedMemberId);
+                if (!member) return null;
+                return (
+                  <>
+                    {/* Topprad: tilbake + navn */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <button
+                        onClick={() => setFocusedMemberId(null)}
+                        className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Familie
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-4 h-4 rounded-full ${member.color}`} />
+                        <span className="font-semibold text-base">{member.name}</span>
                       </div>
-                    );
-                  })}
-                </div>
-              ))}
+                    </div>
+
+                    {/* Datoheader – full bredde, 7 kolonner */}
+                    <div className="grid grid-cols-7 gap-2 mb-2">
+                      {weekDates.map((date, i) => {
+                        const isToday = formatDate(date) === todayStr;
+                        return (
+                          <div key={i} className="text-center">
+                            <div className="text-xs text-gray-400 uppercase tracking-wide">{DAY_NAMES[i]}</div>
+                            <div className={`text-sm font-semibold mt-0.5 ${isToday ? "text-blue-500" : "text-gray-700"}`}>
+                              {date.getDate()}.{date.getMonth() + 1}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Én rad med store celler */}
+                    <div className="grid grid-cols-7 gap-2">
+                      {weekDates.map((date, i) => {
+                        const dateStr = formatDate(date);
+                        const isToday = dateStr === todayStr;
+                        const cellEvents = getEventsForCell(member.id, dateStr);
+
+                        return (
+                          <div
+                            key={i}
+                            onClick={() => setModalCell({ memberId: member.id, date: dateStr })}
+                            className={`min-h-40 rounded-lg p-2 cursor-pointer transition-colors ${
+                              isToday
+                                ? "bg-gray-100 ring-1 ring-blue-500 hover:bg-gray-200"
+                                : "bg-white hover:bg-gray-100"
+                            }`}
+                          >
+                            {cellEvents.map((event) => (
+                              <EventChip
+                                key={event.id}
+                                event={event}
+                                dateStr={dateStr}
+                                member={member}
+                                members={members}
+                                chipColor={toChipColor(member.color)}
+                                onOpen={(ev) => setActiveEvent({ event: ev, date: dateStr })}
+                                solo
+                              />
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </>

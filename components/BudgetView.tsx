@@ -975,69 +975,119 @@ export default function BudgetView({ categories: initialCategories, overrides: i
         </table>
       </div>}
 
-      {/* Sparingsoversikt */}
-      {activeTab === "actual" && savingsCat && savingsCat.items.length > 0 && (
-        <div className="px-4 py-6">
-          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">💰 Sparingsoversikt</h2>
-          <p className="text-xs text-gray-400 mb-4">Klikk på startsaldo for å oppdatere nåværende beholdning. Saldo beregnes fremover basert på månedlige avsetninger.</p>
-
+      {/* Avsetningskonto – isolert likviditetsbuffer */}
+      {activeTab === "actual" && bufferItem && (
+        <div className="px-4 pt-4 pb-2">
+          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-1">🏦 Avsetningskonto</h2>
+          <p className="text-xs text-gray-400 mb-3">Løpende likviditetsbuffer – monthly avsetning minus forventede engangsutgifter.</p>
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse" style={{ minWidth: "700px" }}>
+            <table className="border-collapse" style={{ tableLayout: "fixed", width: "100%", minWidth: `${180 + 110 + 90 + monthCols.length * 72}px` }}>
+              <colgroup>
+                <col style={{ width: "180px" }} />
+                <col style={{ width: "110px" }} />
+                <col style={{ width: "90px" }} />
+                {monthCols.map((_, i) => <col key={i} style={{ width: "72px" }} />)}
+              </colgroup>
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left px-3 py-2 text-xs text-gray-400 uppercase tracking-wide" style={{ minWidth: "180px" }}>Konto</th>
-                  <th className="text-right px-3 py-2 text-xs text-gray-400 uppercase tracking-wide" style={{ minWidth: "110px" }}>Startsaldo</th>
-                  <th className="text-right px-3 py-2 text-xs text-gray-400 uppercase tracking-wide" style={{ minWidth: "90px" }}>Per mnd</th>
+                  <th className="text-left px-3 py-2 text-xs text-gray-400 uppercase tracking-wide">Konto</th>
+                  <th className="text-right px-3 py-2 text-xs text-gray-400 uppercase tracking-wide">Nåværende saldo</th>
+                  <th className="text-right px-3 py-2 text-xs text-gray-400 uppercase tracking-wide">Per mnd</th>
                   {monthCols.map((col) => (
-                    <th key={`sh-${col.month}`} className={`text-right px-2 py-2 text-xs uppercase tracking-wide ${col.isCurrent ? "text-blue-500" : "text-gray-400"}`} style={{ minWidth: "70px" }}>
+                    <th key={`bh-${col.month}`} className={`text-right px-2 py-2 text-xs uppercase tracking-wide ${col.isCurrent ? "text-blue-500" : "text-gray-400"}`}>
                       {col.label}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {savingsCat.items.map((item) => {
-                  const isBuffer = bufferItem?.id === item.id;
+                <tr className="border-b border-gray-100 bg-blue-50/30">
+                  <td className="px-3 py-2.5 text-sm font-medium text-gray-700">{bufferItem.name}</td>
+                  <td className="text-right px-3 py-2.5">
+                    {editStartKey === bufferItem.id ? (
+                      <input type="number" value={editStartValue}
+                        onChange={(e) => setEditStartValue(e.target.value)}
+                        onBlur={() => saveStartingBalance(bufferItem.id)}
+                        onKeyDown={(e) => { if (e.key === "Enter") saveStartingBalance(bufferItem.id); if (e.key === "Escape") setEditStartKey(null); }}
+                        autoFocus className="w-full text-right bg-blue-100 rounded px-2 py-0.5 outline-none ring-1 ring-blue-500 text-sm" />
+                    ) : (
+                      <button onClick={() => { setEditStartKey(bufferItem.id); setEditStartValue((startingBalances[bufferItem.id] ?? 0) === 0 ? "" : String(startingBalances[bufferItem.id])); }}
+                        className="text-sm w-full text-right text-gray-700 hover:text-blue-600 hover:underline transition-colors">
+                        {(startingBalances[bufferItem.id] ?? 0) === 0 ? <span className="text-gray-300">Angi saldo</span> : (startingBalances[bufferItem.id] ?? 0).toLocaleString("nb-NO") + " kr"}
+                      </button>
+                    )}
+                  </td>
+                  <td className="text-right px-3 py-2.5 text-sm text-gray-500">
+                    {getVal(bufferItem.id, selectedYear, 1) > 0 ? `+ ${getVal(bufferItem.id, selectedYear, 1).toLocaleString("nb-NO")}` : "–"}
+                  </td>
+                  {monthCols.map((col) => {
+                    const bal = getBufferBalance(bufferItem.id, col.month, col.year);
+                    return (
+                      <td key={`buf-${col.month}`} className={`text-right px-2 py-2.5 text-sm font-semibold ${col.isCurrent ? "bg-blue-100" : ""} ${bal < 0 ? "text-red-500" : "text-green-600"}`}>
+                        {bal === 0 ? "–" : bal.toLocaleString("nb-NO")}
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Sparingsoversikt – kun rene sparingsposter */}
+      {activeTab === "actual" && savingsCat && savingsCat.items.filter((i) => i.id !== bufferItem?.id).length > 0 && (
+        <div className="px-4 pt-4 pb-8">
+          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-1">💰 Sparingsoversikt</h2>
+          <p className="text-xs text-gray-400 mb-3">Klikk på saldo for å oppdatere nåværende beholdning. Fremtidig saldo beregnes automatisk.</p>
+          <div className="overflow-x-auto">
+            <table className="border-collapse" style={{ tableLayout: "fixed", width: "100%", minWidth: `${180 + 110 + 90 + monthCols.length * 72}px` }}>
+              <colgroup>
+                <col style={{ width: "180px" }} />
+                <col style={{ width: "110px" }} />
+                <col style={{ width: "90px" }} />
+                {monthCols.map((_, i) => <col key={i} style={{ width: "72px" }} />)}
+              </colgroup>
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left px-3 py-2 text-xs text-gray-400 uppercase tracking-wide">Konto</th>
+                  <th className="text-right px-3 py-2 text-xs text-gray-400 uppercase tracking-wide">Nåværende saldo</th>
+                  <th className="text-right px-3 py-2 text-xs text-gray-400 uppercase tracking-wide">Per mnd</th>
+                  {monthCols.map((col) => (
+                    <th key={`sh-${col.month}`} className={`text-right px-2 py-2 text-xs uppercase tracking-wide ${col.isCurrent ? "text-blue-500" : "text-gray-400"}`}>
+                      {col.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {savingsCat.items.filter((item) => item.id !== bufferItem?.id).map((item) => {
                   const startBal = startingBalances[item.id] ?? 0;
                   const monthly = getVal(item.id, selectedYear, 1);
-
                   return (
-                    <tr key={item.id} className={`border-b border-gray-100 ${isBuffer ? "bg-blue-50/40" : "hover:bg-gray-50"}`}>
-                      <td className="px-3 py-2">
-                        <div className="text-sm font-medium text-gray-700">{item.name}</div>
-                        {isBuffer && <div className="text-xs text-blue-500">↔ inkl. engangsutgifter</div>}
-                      </td>
-                      <td className="text-right px-3 py-2">
+                    <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-3 py-2.5 text-sm font-medium text-gray-700 truncate">{item.name}</td>
+                      <td className="text-right px-3 py-2.5">
                         {editStartKey === item.id ? (
-                          <input
-                            type="number"
-                            value={editStartValue}
+                          <input type="number" value={editStartValue}
                             onChange={(e) => setEditStartValue(e.target.value)}
                             onBlur={() => saveStartingBalance(item.id)}
                             onKeyDown={(e) => { if (e.key === "Enter") saveStartingBalance(item.id); if (e.key === "Escape") setEditStartKey(null); }}
-                            autoFocus
-                            className="w-28 text-right bg-blue-100 rounded px-2 py-0.5 outline-none ring-1 ring-blue-500 text-sm"
-                          />
+                            autoFocus className="w-full text-right bg-blue-100 rounded px-2 py-0.5 outline-none ring-1 ring-blue-500 text-sm" />
                         ) : (
-                          <button
-                            onClick={() => { setEditStartKey(item.id); setEditStartValue(startBal === 0 ? "" : String(startBal)); }}
-                            className="text-sm text-gray-700 hover:text-blue-600 hover:underline transition-colors"
-                          >
+                          <button onClick={() => { setEditStartKey(item.id); setEditStartValue(startBal === 0 ? "" : String(startBal)); }}
+                            className="text-sm w-full text-right text-gray-700 hover:text-blue-600 hover:underline transition-colors">
                             {startBal === 0 ? <span className="text-gray-300">Angi saldo</span> : startBal.toLocaleString("nb-NO") + " kr"}
                           </button>
                         )}
                       </td>
-                      <td className="text-right px-3 py-2 text-sm text-gray-500">
+                      <td className="text-right px-3 py-2.5 text-sm text-gray-500">
                         {monthly > 0 ? `+ ${monthly.toLocaleString("nb-NO")}` : "–"}
                       </td>
                       {monthCols.map((col) => {
-                        const bal = isBuffer
-                          ? getBufferBalance(item.id, col.month, col.year)
-                          : getSavingsBalance(item.id, col.month, col.year);
+                        const bal = getSavingsBalance(item.id, col.month, col.year);
                         return (
-                          <td key={`sb-${item.id}-${col.month}`} className={`text-right px-2 py-2 text-sm font-medium ${
-                            col.isCurrent ? "bg-blue-50" : ""
-                          } ${bal < 0 ? "text-red-500" : bal > startBal ? "text-green-600" : "text-gray-600"}`}>
+                          <td key={`sb-${item.id}-${col.month}`} className={`text-right px-2 py-2.5 text-sm font-medium ${col.isCurrent ? "bg-blue-50" : ""} ${bal < 0 ? "text-red-500" : bal > startBal ? "text-green-600" : "text-gray-500"}`}>
                             {bal === 0 ? "–" : bal.toLocaleString("nb-NO")}
                           </td>
                         );
@@ -1047,34 +1097,30 @@ export default function BudgetView({ categories: initialCategories, overrides: i
                 })}
 
                 {/* Totalrad */}
-                <tr className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
-                  <td className="px-3 py-2 text-sm text-gray-700">Total sparing</td>
-                  <td className="text-right px-3 py-2 text-sm text-gray-700">
-                    {Object.values(startingBalances)
-                      .filter((_, i) => savingsCat.items[i])
-                      .reduce((sum, val) => sum + (val ?? 0), 0) > 0
-                      ? savingsCat.items.reduce((sum, item) => sum + (startingBalances[item.id] ?? 0), 0).toLocaleString("nb-NO") + " kr"
-                      : "–"}
-                  </td>
-                  <td className="text-right px-3 py-2 text-sm text-gray-700">
-                    {getCatMonthTotal(savingsCat, selectedYear, 1) > 0
-                      ? `+ ${getCatMonthTotal(savingsCat, selectedYear, 1).toLocaleString("nb-NO")}`
-                      : "–"}
-                  </td>
-                  {monthCols.map((col) => {
-                    const total = savingsCat.items.reduce((sum, item) => {
-                      const bal = bufferItem?.id === item.id
-                        ? getBufferBalance(item.id, col.month, col.year)
-                        : getSavingsBalance(item.id, col.month, col.year);
-                      return sum + bal;
-                    }, 0);
-                    return (
-                      <td key={`st-${col.month}`} className={`text-right px-2 py-2 text-sm font-semibold ${col.isCurrent ? "bg-blue-50" : ""} ${total >= 0 ? "text-green-700" : "text-red-500"}`}>
-                        {total === 0 ? "–" : total.toLocaleString("nb-NO")}
+                {(() => {
+                  const savingsItems = savingsCat.items.filter((i) => i.id !== bufferItem?.id);
+                  const totalStart = savingsItems.reduce((s, i) => s + (startingBalances[i.id] ?? 0), 0);
+                  const totalMonthly = savingsItems.reduce((s, i) => s + getVal(i.id, selectedYear, 1), 0);
+                  return (
+                    <tr className="border-t-2 border-gray-200 bg-gray-50">
+                      <td className="px-3 py-2 text-sm font-semibold text-gray-700">Total</td>
+                      <td className="text-right px-3 py-2 text-sm font-semibold text-gray-700">
+                        {totalStart === 0 ? "–" : totalStart.toLocaleString("nb-NO") + " kr"}
                       </td>
-                    );
-                  })}
-                </tr>
+                      <td className="text-right px-3 py-2 text-sm font-semibold text-gray-700">
+                        {totalMonthly === 0 ? "–" : `+ ${totalMonthly.toLocaleString("nb-NO")}`}
+                      </td>
+                      {monthCols.map((col) => {
+                        const total = savingsItems.reduce((s, item) => s + getSavingsBalance(item.id, col.month, col.year), 0);
+                        return (
+                          <td key={`st-${col.month}`} className={`text-right px-2 py-2 text-sm font-semibold ${col.isCurrent ? "bg-blue-50" : ""} ${total >= 0 ? "text-green-700" : "text-red-500"}`}>
+                            {total === 0 ? "–" : total.toLocaleString("nb-NO")}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })()}
               </tbody>
             </table>
           </div>
