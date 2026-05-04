@@ -10,6 +10,7 @@ type Item = {
   name: string;
   sort_order: number;
   monthly_default: number;
+  starting_balance: number;
   source: string;
 };
 
@@ -143,6 +144,17 @@ export default function BudgetView({ categories: initialCategories, overrides: i
   const [addingToCatId, setAddingToCatId] = useState<string | null>(null);
   const [newItemName, setNewItemName] = useState("");
 
+  // Startsaldo for sparingsposter
+  const [startingBalances, setStartingBalances] = useState<Record<string, number>>(() => {
+    const sb: Record<string, number> = {};
+    initialCategories.forEach((cat) =>
+      cat.items.forEach((item) => { sb[item.id] = Number(item.starting_balance) || 0; })
+    );
+    return sb;
+  });
+  const [editStartKey, setEditStartKey] = useState<string | null>(null);
+  const [editStartValue, setEditStartValue] = useState("");
+
   // --- Beregninger ---
 
   const getVal = useCallback(
@@ -218,6 +230,81 @@ export default function BudgetView({ categories: initialCategories, overrides: i
     const exp = expenseCats.reduce((s, c) => s + getCatAnnualTotal(c), 0);
     return inc - exp - getMaintenanceAnnualTotal() - getPlannedAnnualTotal();
   };
+
+  // --- Sparingsprojeksjon ---
+  const savingsCat = categories.find((c) => c.type === "savings");
+  const bufferItem = savingsCat?.items.find((i) =>
+    i.name.toLowerCase().includes("buffer") || i.name.toLowerCase().includes("avsetning")
+  ) ?? null;
+
+  const getSavingsBalance = useCallback(
+    (itemId: string, upToMonth: number, year: number): number => {
+      const startBal = startingBalances[itemId] ?? 0;
+      let balance = startBal;
+      for (let m = 1; m <= upToMonth; m++) balance += getVal(itemId, year, m);
+      return balance;
+    },
+    [startingBalances, getVal]
+  );
+
+  const getBufferBalance = useCallback(
+    (itemId: string, upToMonth: number, year: number): number => {
+      let balance = getSavingsBalance(itemId, upToMonth, year);
+      for (let m = 1; m <= upToMonth; m++) {
+        balance -= getMaintenanceMonthTotal(year, m);
+        balance -= getPlannedMonthTotal(year, m);
+      }
+      return balance;
+    },
+    [getSavingsBalance, getMaintenanceMonthTotal, getPlannedMonthTotal]
+  );
+
+  const saveStartingBalance = async (itemId: string) => {
+    const val = Math.round(parseFloat(editStartValue) || 0);
+    await supabase.from("budget_items").update({ starting_balance: val }).eq("id", itemId);
+    setStartingBalances((prev) => ({ ...prev, [itemId]: val }));
+    setEditStartKey(null);
+  };
+
+  // --- Helseindikator ---
+  const nowDate = new Date();
+  const healthMonth = nowDate.getMonth() + 1;
+  const healthYear = nowDate.getFullYear();
+  const monthlyIncome = incomeCat ? getCatMonthTotal(incomeCat, healthYear, healthMonth) : 0;
+  const monthlySavingsTotal = savingsCat ? getCatMonthTotal(savingsCat, healthYear, healthMonth) : 0;
+  const monthlyCashFlow = monthlyIncome > 0 ? getRestMonth(healthYear, healthMonth) : 0;
+  const savingsRate = monthlyIncome > 0 ? Math.round((monthlySavingsTotal / monthlyIncome) * 100) : 0;
+  const loanCat = categories.find((c) => c.type === "loan");
+  const monthlyLoans = loanCat ? getCatMonthTotal(loanCat, healthYear, healthMonth) : 0;
+  const debtRatio = monthlyIncome > 0 ? Math.round((monthlyLoans / monthlyIncome) * 100) : 0;
+
+  // Sjekk om bufferkonto går i minus de neste 6 månedene
+  let bufferWarning: string | null = null;
+  if (bufferItem) {
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(healthYear, healthMonth - 1 + i, 1);
+      const bal = getBufferBalance(bufferItem.id, d.getMonth() + 1, d.getFullYear());
+      if (bal < 0) {
+        bufferWarning = MONTH_NAMES[d.getMonth()] + (d.getFullYear() !== healthYear ? ` ${d.getFullYear()}` : "");
+        break;
+      }
+    }
+  }
+
+  const healthStatus: "nodata" | "red" | "yellow" | "green" =
+    monthlyIncome === 0 ? "nodata"
+    : monthlyCashFlow < 0 ? "red"
+    : savingsRate < 5 || bufferWarning ? "yellow"
+    : "green";
+
+  const healthSuggestions: string[] = [];
+  if (monthlyIncome > 0) {
+    if (monthlyCashFlow < 0) healthSuggestions.push(`Månedlige utgifter overstiger inntekt med ${Math.abs(monthlyCashFlow).toLocaleString("nb-NO")} kr. Gjennomgå faste utgifter.`);
+    if (savingsRate < 10 && savingsRate >= 0) healthSuggestions.push(`Sparerate er ${savingsRate}%. Eksperter anbefaler minimum 10% av inntekt.`);
+    if (debtRatio > 40) healthSuggestions.push(`Lånebelastning er ${debtRatio}% av inntekt – vurder ekstra nedbetaling.`);
+    if (bufferWarning) healthSuggestions.push(`Bufferkontoen kan gå i minus i ${bufferWarning}. Vurder å øke månedlig avsetning.`);
+    if (monthlyCashFlow > monthlyIncome * 0.2 && savingsRate < 15) healthSuggestions.push(`Du har god margin. Vurder å øke sparingen.`);
+  }
 
   // --- Slett alt grunnlag ---
   const handleDeleteAll = async () => {
@@ -534,6 +621,38 @@ export default function BudgetView({ categories: initialCategories, overrides: i
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* Helseindikator */}
+      {activeTab === "actual" && healthStatus !== "nodata" && (
+        <div className={`mx-4 mt-3 mb-1 rounded-xl p-4 border ${
+          healthStatus === "green" ? "bg-green-50 border-green-100" :
+          healthStatus === "yellow" ? "bg-amber-50 border-amber-100" :
+          "bg-red-50 border-red-100"
+        }`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{healthStatus === "green" ? "🟢" : healthStatus === "yellow" ? "🟡" : "🔴"}</span>
+              <span className="font-semibold text-sm text-gray-800">
+                {healthStatus === "green" ? "God økonomisk helse" : healthStatus === "yellow" ? "Noen punkter å se på" : "Økonomi under press"}
+              </span>
+            </div>
+            <div className="flex gap-4 text-xs text-gray-500">
+              <span>Sparerate: <b className={savingsRate >= 10 ? "text-green-600" : savingsRate >= 5 ? "text-amber-600" : "text-red-500"}>{savingsRate}%</b></span>
+              <span>Lånbelastning: <b className={debtRatio <= 30 ? "text-green-600" : debtRatio <= 40 ? "text-amber-600" : "text-red-500"}>{debtRatio}%</b></span>
+              <span>Månedlig rest: <b className={monthlyCashFlow >= 0 ? "text-green-600" : "text-red-500"}>{monthlyCashFlow.toLocaleString("nb-NO")} kr</b></span>
+            </div>
+          </div>
+          {healthSuggestions.length > 0 && (
+            <ul className="space-y-1">
+              {healthSuggestions.map((s, i) => (
+                <li key={i} className="text-xs text-gray-600 flex items-start gap-1.5">
+                  <span className="mt-0.5 flex-shrink-0">💡</span>{s}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
@@ -855,6 +974,112 @@ export default function BudgetView({ categories: initialCategories, overrides: i
           </tbody>
         </table>
       </div>}
+
+      {/* Sparingsoversikt */}
+      {activeTab === "actual" && savingsCat && savingsCat.items.length > 0 && (
+        <div className="px-4 py-6">
+          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">💰 Sparingsoversikt</h2>
+          <p className="text-xs text-gray-400 mb-4">Klikk på startsaldo for å oppdatere nåværende beholdning. Saldo beregnes fremover basert på månedlige avsetninger.</p>
+
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse" style={{ minWidth: "700px" }}>
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left px-3 py-2 text-xs text-gray-400 uppercase tracking-wide" style={{ minWidth: "180px" }}>Konto</th>
+                  <th className="text-right px-3 py-2 text-xs text-gray-400 uppercase tracking-wide" style={{ minWidth: "110px" }}>Startsaldo</th>
+                  <th className="text-right px-3 py-2 text-xs text-gray-400 uppercase tracking-wide" style={{ minWidth: "90px" }}>Per mnd</th>
+                  {monthCols.map((col) => (
+                    <th key={`sh-${col.month}`} className={`text-right px-2 py-2 text-xs uppercase tracking-wide ${col.isCurrent ? "text-blue-500" : "text-gray-400"}`} style={{ minWidth: "70px" }}>
+                      {col.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {savingsCat.items.map((item) => {
+                  const isBuffer = bufferItem?.id === item.id;
+                  const startBal = startingBalances[item.id] ?? 0;
+                  const monthly = getVal(item.id, selectedYear, 1);
+
+                  return (
+                    <tr key={item.id} className={`border-b border-gray-100 ${isBuffer ? "bg-blue-50/40" : "hover:bg-gray-50"}`}>
+                      <td className="px-3 py-2">
+                        <div className="text-sm font-medium text-gray-700">{item.name}</div>
+                        {isBuffer && <div className="text-xs text-blue-500">↔ inkl. engangsutgifter</div>}
+                      </td>
+                      <td className="text-right px-3 py-2">
+                        {editStartKey === item.id ? (
+                          <input
+                            type="number"
+                            value={editStartValue}
+                            onChange={(e) => setEditStartValue(e.target.value)}
+                            onBlur={() => saveStartingBalance(item.id)}
+                            onKeyDown={(e) => { if (e.key === "Enter") saveStartingBalance(item.id); if (e.key === "Escape") setEditStartKey(null); }}
+                            autoFocus
+                            className="w-28 text-right bg-blue-100 rounded px-2 py-0.5 outline-none ring-1 ring-blue-500 text-sm"
+                          />
+                        ) : (
+                          <button
+                            onClick={() => { setEditStartKey(item.id); setEditStartValue(startBal === 0 ? "" : String(startBal)); }}
+                            className="text-sm text-gray-700 hover:text-blue-600 hover:underline transition-colors"
+                          >
+                            {startBal === 0 ? <span className="text-gray-300">Angi saldo</span> : startBal.toLocaleString("nb-NO") + " kr"}
+                          </button>
+                        )}
+                      </td>
+                      <td className="text-right px-3 py-2 text-sm text-gray-500">
+                        {monthly > 0 ? `+ ${monthly.toLocaleString("nb-NO")}` : "–"}
+                      </td>
+                      {monthCols.map((col) => {
+                        const bal = isBuffer
+                          ? getBufferBalance(item.id, col.month, col.year)
+                          : getSavingsBalance(item.id, col.month, col.year);
+                        return (
+                          <td key={`sb-${item.id}-${col.month}`} className={`text-right px-2 py-2 text-sm font-medium ${
+                            col.isCurrent ? "bg-blue-50" : ""
+                          } ${bal < 0 ? "text-red-500" : bal > startBal ? "text-green-600" : "text-gray-600"}`}>
+                            {bal === 0 ? "–" : bal.toLocaleString("nb-NO")}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+
+                {/* Totalrad */}
+                <tr className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+                  <td className="px-3 py-2 text-sm text-gray-700">Total sparing</td>
+                  <td className="text-right px-3 py-2 text-sm text-gray-700">
+                    {Object.values(startingBalances)
+                      .filter((_, i) => savingsCat.items[i])
+                      .reduce((sum, val) => sum + (val ?? 0), 0) > 0
+                      ? savingsCat.items.reduce((sum, item) => sum + (startingBalances[item.id] ?? 0), 0).toLocaleString("nb-NO") + " kr"
+                      : "–"}
+                  </td>
+                  <td className="text-right px-3 py-2 text-sm text-gray-700">
+                    {getCatMonthTotal(savingsCat, selectedYear, 1) > 0
+                      ? `+ ${getCatMonthTotal(savingsCat, selectedYear, 1).toLocaleString("nb-NO")}`
+                      : "–"}
+                  </td>
+                  {monthCols.map((col) => {
+                    const total = savingsCat.items.reduce((sum, item) => {
+                      const bal = bufferItem?.id === item.id
+                        ? getBufferBalance(item.id, col.month, col.year)
+                        : getSavingsBalance(item.id, col.month, col.year);
+                      return sum + bal;
+                    }, 0);
+                    return (
+                      <td key={`st-${col.month}`} className={`text-right px-2 py-2 text-sm font-semibold ${col.isCurrent ? "bg-blue-50" : ""} ${total >= 0 ? "text-green-700" : "text-red-500"}`}>
+                        {total === 0 ? "–" : total.toLocaleString("nb-NO")}
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
