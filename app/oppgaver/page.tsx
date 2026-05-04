@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import OppgaverView from "@/components/OppgaverView";
 import type { Metadata } from "next";
@@ -17,5 +18,9 @@ export default async function OppgaverPage() {
     supabase.from("family_members").select("*").order("created_at"),
   ]);
 
-  return <OppgaverView tasks={tasks ?? []} members={members ?? []} />;
+  return (
+    <Suspense fallback={null}>
+      <OppgaverView tasks={tasks ?? []} members={members ?? []} />
+    </Suspense>
+  );
 }
