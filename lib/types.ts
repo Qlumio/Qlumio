@@ -57,9 +57,19 @@ export type Event = {
   end_time: string | null;
   recurring: boolean;
   responsible_member_id: string | null; // foresatt ansvarlig når barn deltar
+  category: string | null; // årshjul-kategori
   created_at: string;
   participant_ids: string[]; // fra event_participants
 };
+
+export const ARSHJUL_CATEGORIES = [
+  { value: "kjøretøy", label: "Kjøretøy", icon: "🚗" },
+  { value: "økonomi", label: "Økonomi", icon: "💰" },
+  { value: "helse", label: "Helse", icon: "🏥" },
+  { value: "fritid", label: "Fritid", icon: "⛵" },
+  { value: "familie", label: "Familie", icon: "👨‍👩‍👧" },
+  { value: "eiendom", label: "Eiendom", icon: "🏠" },
+] as const;
 
 export type Task = {
   id: string;

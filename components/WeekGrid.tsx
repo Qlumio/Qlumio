@@ -101,6 +101,7 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
     recurring: boolean;
     participant_ids: string[];
     responsible_member_id: string | null;
+    category: string | null;
   }) => {
     if (!modalCell) return;
 
@@ -114,6 +115,7 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
         end_time: data.end_time,
         recurring: data.recurring,
         responsible_member_id: data.responsible_member_id,
+        category: data.category,
       })
       .select()
       .single();

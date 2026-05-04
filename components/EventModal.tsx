@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { FamilyMember } from "@/lib/types";
+import { ARSHJUL_CATEGORIES } from "@/lib/types";
 
 const DAY_NAMES = ["Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag"];
 
@@ -13,6 +14,7 @@ type SaveData = {
   recurring: boolean;
   participant_ids: string[];
   responsible_member_id: string | null;
+  category: string | null;
 };
 
 type Props = {
@@ -37,6 +39,7 @@ export default function EventModal({
   const [recurring, setRecurring] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([preSelectedMemberId]);
   const [responsibleId, setResponsibleId] = useState<string>("");
+  const [category, setCategory] = useState<string>("");
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -77,6 +80,7 @@ export default function EventModal({
       recurring,
       participant_ids: selectedIds,
       responsible_member_id: hasChildParticipant ? responsibleId : null,
+      category: category || null,
     });
   };
 
@@ -166,6 +170,29 @@ export default function EventModal({
             </span>
           )}
         </label>
+
+        <div className="mb-4">
+          <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Kategori <span className="normal-case text-gray-300">(vises i årshjul)</span></p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setCategory("")}
+              className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${!category ? "bg-gray-200 text-gray-700 font-medium" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+            >
+              Ingen
+            </button>
+            {ARSHJUL_CATEGORIES.map((cat) => (
+              <button
+                key={cat.value}
+                type="button"
+                onClick={() => setCategory(cat.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center gap-1 ${category === cat.value ? "bg-blue-100 text-blue-700 font-medium ring-1 ring-blue-300" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+              >
+                {cat.icon} {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="mb-4">
           <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Deltakere</p>

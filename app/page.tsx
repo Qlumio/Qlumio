@@ -59,6 +59,7 @@ export default async function Home() {
     end_time: e.end_time,
     recurring: e.recurring,
     responsible_member_id: e.responsible_member_id ?? null,
+    category: e.category ?? null,
     created_at: e.created_at,
     participant_ids: (e.event_participants ?? []).map(
       (p: { family_member_id: string }) => p.family_member_id
