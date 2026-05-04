@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { FamilyMember } from "@/lib/types";
 import { EVENT_CATEGORIES } from "@/lib/types";
+import { supabase } from "@/lib/supabase";
 
 const DAY_NAMES = ["Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag"];
 
@@ -377,6 +378,23 @@ export default function EventModal({ date, members, preSelectedMemberId, onSave,
   const [selectedIds, setSelectedIds] = useState<string[]>([preSelectedMemberId]);
   const [responsibleId, setResponsibleId] = useState<string>("");
 
+  // Oppgaver som skal opprettes samtidig
+  type TaskDraft = { id: number; title: string; assignedTo: string };
+  const [taskDrafts, setTaskDrafts] = useState<TaskDraft[]>([]);
+  const [showTasks, setShowTasks] = useState(false);
+  const nextTaskId = useRef(0);
+
+  const addTaskDraft = () => {
+    setTaskDrafts((prev) => [...prev, { id: nextTaskId.current++, title: "", assignedTo: preSelectedMemberId }]);
+    setShowTasks(true);
+  };
+  const updateTaskDraft = (id: number, field: keyof Omit<TaskDraft, "id">, value: string) => {
+    setTaskDrafts((prev) => prev.map((t) => t.id === id ? { ...t, [field]: value } : t));
+  };
+  const removeTaskDraft = (id: number) => {
+    setTaskDrafts((prev) => prev.filter((t) => t.id !== id));
+  };
+
   const childMembers = members.filter((m) => m.role === "child");
   const parentMembers = members.filter((m) => m.role !== "child");
   const hasChildParticipant = selectedIds.some((id) => childMembers.some((c) => c.id === id));
@@ -396,8 +414,22 @@ export default function EventModal({ date, members, preSelectedMemberId, onSave,
     setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!canSave) return;
+
+    // Lagre oppgaver parallelt (tittel må være fylt inn)
+    const validTasks = taskDrafts.filter((t) => t.title.trim() !== "");
+    if (validTasks.length > 0) {
+      await supabase.from("tasks").insert(
+        validTasks.map((t) => ({
+          title: t.title.trim(),
+          due_date: date,
+          assigned_to: t.assignedTo || null,
+          completed: false,
+        }))
+      );
+    }
+
     onSave({
       title: derivedTitle.trim(),
       end_date: showEndDate && endDate !== date ? endDate : null,
@@ -540,6 +572,68 @@ export default function EventModal({ date, members, preSelectedMemberId, onSave,
             </div>
           </div>
         )}
+
+        {/* 8. Oppgaver */}
+        <div className="mb-4">
+          {!showTasks && taskDrafts.length === 0 ? (
+            <button
+              type="button"
+              onClick={addTaskDraft}
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Legg til oppgave for denne dagen
+            </button>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-400 uppercase tracking-wide font-medium">Oppgaver</p>
+                <button type="button" onClick={addTaskDraft}
+                  className="text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors">
+                  + Legg til
+                </button>
+              </div>
+              <div className="space-y-2">
+                {taskDrafts.map((task) => (
+                  <div key={task.id} className="flex items-center gap-2 bg-gray-50 rounded-xl p-2.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <input
+                      type="text"
+                      placeholder="Hva skal gjøres?"
+                      value={task.title}
+                      onChange={(e) => updateTaskDraft(task.id, "title", e.target.value)}
+                      className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-300 outline-none min-w-0"
+                      autoFocus
+                    />
+                    <select
+                      value={task.assignedTo}
+                      onChange={(e) => updateTaskDraft(task.id, "assignedTo", e.target.value)}
+                      className="text-xs text-gray-500 bg-transparent outline-none cursor-pointer max-w-[90px] truncate"
+                    >
+                      <option value="">Ingen</option>
+                      {members.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => removeTaskDraft(task.id)}
+                      className="text-gray-200 hover:text-red-400 transition-colors flex-shrink-0"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="flex gap-2">
           <button onClick={onClose}
