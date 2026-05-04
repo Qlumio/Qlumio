@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import type { FamilyMember, Event, EventException } from "@/lib/types";
+import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
 import { getMondayOfWeek, getWeekDates, formatDate, getWeekNumber } from "@/lib/dates";
 import EventModal from "@/components/EventModal";
 import EventActionsModal from "@/components/EventActionsModal";
@@ -30,6 +30,7 @@ type Props = {
   members: FamilyMember[];
   events: Event[];
   exceptions: EventException[];
+  tasks: Task[];
   currentMonday: string;
 };
 
@@ -37,6 +38,31 @@ type Props = {
 function formatTime(t: string | null): string | null {
   if (!t) return null;
   return t.slice(0, 5);
+}
+
+// ── TaskChip – oppgave-chip i kalender ───────────────────────────────────────
+function TaskChip({ task, onToggle }: { task: Task; onToggle: (task: Task) => void }) {
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); onToggle(task); }}
+      className={`flex items-start gap-1.5 rounded-md px-2 py-1.5 mb-1.5 cursor-pointer transition-opacity hover:opacity-80 ${
+        task.completed ? "bg-green-50" : "bg-gray-50 border border-dashed border-gray-200"
+      }`}
+    >
+      <div className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 rounded-sm border flex items-center justify-center transition-colors ${
+        task.completed ? "bg-green-500 border-green-500" : "border-gray-300"
+      }`}>
+        {task.completed && (
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+      </div>
+      <span className={`text-xs leading-tight ${task.completed ? "line-through text-gray-400" : "text-gray-700"}`}>
+        {task.title}
+      </span>
+    </div>
+  );
 }
 
 function getCategoryEmoji(category: string | null): string | null {
@@ -118,11 +144,26 @@ function EventChip({
   );
 }
 
-export default function WeekGrid({ members, events, exceptions, currentMonday }: Props) {
+export default function WeekGrid({ members, events, exceptions, tasks, currentMonday }: Props) {
   const router = useRouter();
   const [modalCell, setModalCell] = useState<ModalCell>(null);
   const [activeEvent, setActiveEvent] = useState<ActiveEvent>(null);
   const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null);
+  const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
+
+  // Oppgaver for et gitt familiemedlem på en gitt dato
+  const getTasksForCell = (memberId: string, dateStr: string): Task[] =>
+    localTasks.filter((t) => t.due_date === dateStr && t.assigned_to === memberId);
+
+  // Toggle completed lokalt + i DB
+  const handleToggleTask = async (task: Task) => {
+    const updated = { ...task, completed: !task.completed };
+    setLocalTasks((prev) => prev.map((t) => t.id === task.id ? updated : t));
+    await supabase
+      .from("tasks")
+      .update({ completed: updated.completed, completed_at: updated.completed ? new Date().toISOString() : null })
+      .eq("id", task.id);
+  };
 
   const monday = new Date(currentMonday + "T00:00:00");
   const weekDates = getWeekDates(monday);
@@ -408,6 +449,8 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
                         const visibleEvents = cellEvents.slice(0, MAX_VISIBLE_EVENTS);
                         const hiddenCount = cellEvents.length - MAX_VISIBLE_EVENTS;
 
+                        const cellTasks = getTasksForCell(member.id, dateStr);
+
                         return (
                           <div
                             key={i}
@@ -439,6 +482,9 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
                             {hiddenCount > 0 && (
                               <div className="text-xs text-gray-400 pl-1 mt-0.5">+{hiddenCount} mer</div>
                             )}
+                            {cellTasks.map((task) => (
+                              <TaskChip key={task.id} task={task} onToggle={handleToggleTask} />
+                            ))}
                           </div>
                         );
                       })}
@@ -492,6 +538,8 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
                         const isToday = dateStr === todayStr;
                         const cellEvents = getEventsForCell(member.id, dateStr);
 
+                        const cellTasks = getTasksForCell(member.id, dateStr);
+
                         return (
                           <div
                             key={i}
@@ -520,6 +568,9 @@ export default function WeekGrid({ members, events, exceptions, currentMonday }:
                                 onOpen={(ev) => setActiveEvent({ event: ev, date: dateStr })}
                                 solo
                               />
+                            ))}
+                            {cellTasks.map((task) => (
+                              <TaskChip key={task.id} task={task} onToggle={handleToggleTask} />
                             ))}
                           </div>
                         );

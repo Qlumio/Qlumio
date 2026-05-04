@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { supabase } from "@/lib/supabase";
 import WeekGrid from "@/components/WeekGrid";
 import { getMondayOfWeek, getWeekDates, formatDate } from "@/lib/dates";
-import type { Event, EventException } from "@/lib/types";
+import type { Event, EventException, Task } from "@/lib/types";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -51,6 +51,13 @@ export default async function AktiviteterPage({
     .from("event_exceptions")
     .select("*");
 
+  const { data: tasksRaw } = await supabase
+    .from("tasks")
+    .select("*")
+    .gte("due_date", extendedFromStr)
+    .lte("due_date", sundayStr)
+    .order("created_at");
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const normalize = (e: any): Event => ({
     id: e.id,
@@ -84,6 +91,7 @@ export default async function AktiviteterPage({
       members={members ?? []}
       events={events}
       exceptions={(exceptions ?? []) as EventException[]}
+      tasks={(tasksRaw ?? []) as Task[]}
       currentMonday={mondayStr}
     />
   );
