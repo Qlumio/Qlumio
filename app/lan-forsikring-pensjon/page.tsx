@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { supabase } from "@/lib/supabase";
 import LFPView from "@/components/LFPView";
 import type { Metadata } from "next";

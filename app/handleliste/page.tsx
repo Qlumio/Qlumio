@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { supabase } from "@/lib/supabase";
 import ShoppingList from "@/components/ShoppingList";
 import type { Metadata } from "next";

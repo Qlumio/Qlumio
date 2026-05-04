@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { supabase } from "@/lib/supabase";
 import ArshjulView from "@/components/ArshjulView";
 import type { Metadata } from "next";

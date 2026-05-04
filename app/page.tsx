@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { supabase } from "@/lib/supabase";
 import HomeView from "@/components/HomeView";
+
+export const dynamic = "force-dynamic";
 import { formatDate } from "@/lib/dates";
 import type { Event, EventException, Task } from "@/lib/types";
 

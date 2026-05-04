@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { supabase } from "@/lib/supabase";
 import InnkjopView from "@/components/InnkjopView";
 import type { Metadata } from "next";

@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { supabase } from "@/lib/supabase";
 import WeekGrid from "@/components/WeekGrid";
 import { getMondayOfWeek, getWeekDates, formatDate } from "@/lib/dates";
