@@ -88,7 +88,7 @@ export default function HomeView({ members, events, exceptions, tasks, todayStr 
   });
 
   const todayDate = new Date(todayStr + "T00:00:00");
-  const filterMemberId = isAdmin ? null : freshUser.id;
+  const filterMemberId = freshUser.id;
 
   // Oppgaver for denne brukeren
   const myTasks = tasks.filter((t) => {
@@ -130,28 +130,6 @@ export default function HomeView({ members, events, exceptions, tasks, todayStr 
               {freshUser.name[0].toUpperCase()}
             </div>
           </button>
-        </div>
-
-        {/* ── Hurtighandlinger ── */}
-        <div className="flex gap-2 mb-5">
-          <Link
-            href="/oppgaver?ny=1"
-            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-100 rounded-lg text-sm font-medium text-gray-700 transition-colors flex-1 justify-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Ny oppgave
-          </Link>
-          <Link
-            href="/aktiviteter?ny=1"
-            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-100 rounded-lg text-sm font-medium text-gray-700 transition-colors flex-1 justify-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Ny aktivitet
-          </Link>
         </div>
 
         {/* ── Kompakt i dag / i morgen + forfalt ── */}
