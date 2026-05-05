@@ -32,6 +32,7 @@ type Props = {
   insurances: Insurance[];
   loans: Loan[];
   pensions: Pension[];
+  defaultSection?: Tab;
 };
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -109,9 +110,9 @@ const Tag = ({ children }: { children: React.ReactNode }) => (
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function LFPView({ insurances: init_i, loans: init_l, pensions: init_p, embedded = false }: Props & { embedded?: boolean }) {
+export default function LFPView({ insurances: init_i, loans: init_l, pensions: init_p, defaultSection = "forsikring", embedded = false }: Props & { embedded?: boolean }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>("forsikring");
+  const [activeTab, setActiveTab] = useState<Tab>(defaultSection);
   const [insurances, setInsurances] = useState<Insurance[]>(init_i);
   const [loans, setLoans] = useState<Loan[]>(init_l);
   const [pensions, setPensions] = useState<Pension[]>(init_p);

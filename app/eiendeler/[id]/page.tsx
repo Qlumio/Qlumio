@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 import AssetDetail from "@/components/AssetDetail";
 import { notFound } from "next/navigation";
 import type { Asset, AssetTask, FamilyMember } from "@/lib/types";
+import type { Loan } from "@/components/LanView";
 
 export default async function AssetPage({
   params,
@@ -18,22 +19,18 @@ export default async function AssetPage({
 
   if (!asset) notFound();
 
-  const { data: tasks } = await supabase
-    .from("asset_tasks")
-    .select("*")
-    .eq("asset_id", id)
-    .order("due_date");
-
-  const { data: members } = await supabase
-    .from("family_members")
-    .select("*")
-    .order("created_at");
+  const [{ data: tasks }, { data: members }, { data: loans }] = await Promise.all([
+    supabase.from("asset_tasks").select("*").eq("asset_id", id).order("due_date"),
+    supabase.from("family_members").select("*").order("created_at"),
+    supabase.from("loans").select("*").eq("asset_id", id).order("created_at"),
+  ]);
 
   return (
     <AssetDetail
       asset={asset as Asset}
       tasks={(tasks ?? []) as AssetTask[]}
       members={(members ?? []) as FamilyMember[]}
+      loans={(loans ?? []) as Loan[]}
     />
   );
 }

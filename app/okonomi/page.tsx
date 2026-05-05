@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import BudgetView from "@/components/BudgetView";
 import PlannedExpensesView from "@/components/PlannedExpensesView";
 import LFPView from "@/components/LFPView";
+import LanView from "@/components/LanView";
 import InnsiktView, { type InnsiktLoan } from "@/components/InnsiktView";
 import OkonomiTabBar from "@/components/OkonomiTabBar";
 import Link from "next/link";
@@ -19,10 +20,53 @@ export default async function OkonomiPage({
 }) {
   const { tab = "budsjett" } = await searchParams;
 
-  // ── Hent data basert på aktiv fane ──────────────────────────────────────────
   let content: React.ReactNode;
 
-  if (tab === "planlagte") {
+  // ── Forsikringer ─────────────────────────────────────────────────────────────
+  if (tab === "forsikringer") {
+    const { data: insurances } = await supabase
+      .from("insurances")
+      .select("*")
+      .order("created_at");
+
+    content = (
+      <LFPView
+        insurances={insurances ?? []}
+        loans={[]}
+        pensions={[]}
+        defaultSection="forsikring"
+        embedded
+      />
+    );
+
+  // ── Lån ──────────────────────────────────────────────────────────────────────
+  } else if (tab === "lan") {
+    const { data: loans } = await supabase
+      .from("loans")
+      .select("*")
+      .order("created_at");
+
+    content = <LanView loans={loans ?? []} embedded />;
+
+  // ── Pensjon ───────────────────────────────────────────────────────────────────
+  } else if (tab === "pensjon") {
+    const { data: pensions } = await supabase
+      .from("pensions")
+      .select("*")
+      .order("created_at");
+
+    content = (
+      <LFPView
+        insurances={[]}
+        loans={[]}
+        pensions={pensions ?? []}
+        defaultSection="pensjon"
+        embedded
+      />
+    );
+
+  // ── Planlagte kostnader ───────────────────────────────────────────────────────
+  } else if (tab === "planlagte") {
     const { data: expenses } = await supabase
       .from("planned_expenses")
       .select("*")
@@ -30,22 +74,7 @@ export default async function OkonomiPage({
 
     content = <PlannedExpensesView initialExpenses={expenses ?? []} embedded />;
 
-  } else if (tab === "lfp") {
-    const [{ data: insurances }, { data: loans }, { data: pensions }] = await Promise.all([
-      supabase.from("insurances").select("*").order("created_at"),
-      supabase.from("loans").select("*").order("created_at"),
-      supabase.from("pensions").select("*").order("created_at"),
-    ]);
-
-    content = (
-      <LFPView
-        insurances={insurances ?? []}
-        loans={loans ?? []}
-        pensions={pensions ?? []}
-        embedded
-      />
-    );
-
+  // ── Innsikt ───────────────────────────────────────────────────────────────────
   } else if (tab === "innsikt") {
     const [{ data: loansRaw }, { data: savingsCat }] = await Promise.all([
       supabase.from("loans").select("*").order("created_at"),
@@ -72,8 +101,8 @@ export default async function OkonomiPage({
       />
     );
 
+  // ── Budsjett (default) ────────────────────────────────────────────────────────
   } else {
-    // budsjett (default)
     const currentYear = new Date().getFullYear();
 
     const [categoriesResult, overridesResult, tasksResult, plannedResult] = await Promise.all([
@@ -116,7 +145,6 @@ export default async function OkonomiPage({
     );
   }
 
-  // ── Delt shell med header + tabbar ──────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200 px-4 py-3">
