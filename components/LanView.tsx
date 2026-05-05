@@ -67,6 +67,34 @@ function beregnTermin(
   return Math.round(terminbelop);
 }
 
+/**
+ * Beregner antall terminer igjen basert på restgjeld, rente og terminbeløp.
+ * Formel: n = -ln(1 - r*balance/payment) / ln(1+r)
+ * Returnerer Infinity hvis terminbeløpet ikke dekker rentene.
+ */
+function beregnGjenværendeTerminer(
+  restgjeld: number,
+  rente: number,
+  terminbelop: number,
+  terminerPerAar: number,
+): number {
+  const r = rente / 100 / terminerPerAar;
+  if (terminbelop <= 0 || restgjeld <= 0) return 0;
+  if (r === 0) return Math.ceil(restgjeld / terminbelop);
+  if (terminbelop <= restgjeld * r) return Infinity; // betaler ikke ned
+  return Math.ceil(-Math.log(1 - (r * restgjeld) / terminbelop) / Math.log(1 + r));
+}
+
+function formaterGjenværende(terminer: number, terminerPerAar: number): string {
+  if (!isFinite(terminer)) return "Betaler ikke ned";
+  const maaneder = Math.round((terminer / terminerPerAar) * 12);
+  if (maaneder < 1) return "< 1 mnd";
+  if (maaneder < 12) return `${maaneder} mnd`;
+  const aar = Math.floor(maaneder / 12);
+  const rest = maaneder % 12;
+  return rest > 0 ? `${aar} år ${rest} mnd` : `${aar} år`;
+}
+
 const emptyForm = {
   name: "",
   type: "Boliglån",
@@ -181,25 +209,41 @@ const Tag = ({ children }: { children: React.ReactNode }) => (
 function LoanCard({ loan, assetName, onEdit, onDelete }: { loan: Loan; assetName?: string; onEdit: () => void; onDelete: () => void }) {
   const [expanded, setExpanded] = useState(false);
 
+  const terminerPerAar = loan.installments_per_year ?? DEFAULT_INSTALLMENTS;
+
   const terminbelop = useMemo(() => {
     if (loan.loan_amount && loan.interest_rate && loan.repayment_years) {
       return beregnTermin(
         loan.loan_amount,
         loan.interest_rate,
         loan.repayment_years,
-        loan.installments_per_year ?? DEFAULT_INSTALLMENTS,
+        terminerPerAar,
         loan.installment_fee ?? 0,
       );
     }
     return loan.monthly_payment;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loan]);
 
-  const totalBetalt = useMemo(() => {
-    if (!terminbelop || !loan.repayment_years) return null;
-    return terminbelop * loan.repayment_years * (loan.installments_per_year ?? DEFAULT_INSTALLMENTS);
-  }, [terminbelop, loan.repayment_years, loan.installments_per_year]);
+  // Gjenværende terminer beregnes alltid fra restgjeld — ikke opprinnelig løpetid
+  const restgjeld = loan.remaining_debt ?? loan.loan_amount ?? 0;
+  const gjenTerminer = useMemo(() => {
+    if (!terminbelop || !loan.interest_rate || restgjeld <= 0) return null;
+    return beregnGjenværendeTerminer(restgjeld, loan.interest_rate, terminbelop, terminerPerAar);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restgjeld, terminbelop, loan.interest_rate, terminerPerAar]);
 
-  const totalRenter = totalBetalt && loan.loan_amount ? totalBetalt - loan.loan_amount : null;
+  // Totalkostnader basert på restgjeld (ikke opprinnelig lån)
+  const totalBetalt = gjenTerminer && isFinite(gjenTerminer) && terminbelop
+    ? Math.round(terminbelop * gjenTerminer)
+    : null;
+  const totalRenter = totalBetalt != null ? totalBetalt - restgjeld : null;
+
+  const opprinneligLøpetidTerminer = loan.repayment_years
+    ? loan.repayment_years * terminerPerAar
+    : null;
+  const erRedusert = gjenTerminer != null && opprinneligLøpetidTerminer != null
+    && gjenTerminer < opprinneligLøpetidTerminer - 1;
 
   return (
     <div className="bg-white rounded-xl overflow-hidden">
@@ -240,20 +284,35 @@ function LoanCard({ loan, assetName, onEdit, onDelete }: { loan: Loan; assetName
         </div>
 
         {/* Beregningssammendrag */}
-        {loan.loan_amount && loan.interest_rate && loan.repayment_years && (
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <div className="bg-gray-50 rounded-lg p-2">
-              <div className="text-xs text-gray-400">Lånebeløp</div>
-              <div className="text-xs font-semibold">{fmt(loan.loan_amount)}</div>
+        {loan.interest_rate && terminbelop != null && (
+          <div className="mt-3 space-y-2">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              {loan.loan_amount && (
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <div className="text-xs text-gray-400">Lånebeløp</div>
+                  <div className="text-xs font-semibold">{fmt(loan.loan_amount)}</div>
+                </div>
+              )}
+              {loan.repayment_years && (
+                <div className="bg-gray-50 rounded-lg p-2">
+                  <div className="text-xs text-gray-400">Opprinnelig løpetid</div>
+                  <div className="text-xs font-semibold text-gray-500">{loan.repayment_years} år</div>
+                </div>
+              )}
+              {gjenTerminer != null && (
+                <div className={`rounded-lg p-2 ${erRedusert ? "bg-blue-50" : "bg-gray-50"}`}>
+                  <div className="text-xs text-gray-400">Gjenværende løpetid</div>
+                  <div className={`text-xs font-semibold ${erRedusert ? "text-blue-700" : "text-gray-700"} ${!isFinite(gjenTerminer) ? "text-red-500" : ""}`}>
+                    {formaterGjenværende(gjenTerminer, terminerPerAar)}
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="bg-gray-50 rounded-lg p-2">
-              <div className="text-xs text-gray-400">Løpetid</div>
-              <div className="text-xs font-semibold">{loan.repayment_years} år</div>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-2">
-              <div className="text-xs text-gray-400">Terminer/år</div>
-              <div className="text-xs font-semibold">{loan.installments_per_year ?? DEFAULT_INSTALLMENTS}</div>
-            </div>
+            {erRedusert && (
+              <p className="text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-1.5">
+                Gjenværende løpetid er beregnet fra restgjeld ({fmt(restgjeld)}), terminbeløp og rente — og avviker fra opprinnelig løpetid.
+              </p>
+            )}
           </div>
         )}
 
@@ -266,9 +325,14 @@ function LoanCard({ loan, assetName, onEdit, onDelete }: { loan: Loan; assetName
       </div>
 
       {/* Amortiseringstabell (mini) */}
-      {expanded && loan.loan_amount && loan.interest_rate && loan.repayment_years && terminbelop && (
+      {expanded && loan.interest_rate && terminbelop && restgjeld > 0 && (
         <div className="border-t border-gray-100 p-4">
-          <div className="text-xs text-gray-500 mb-2 font-medium">Neste 12 terminer</div>
+          <div className="text-xs text-gray-500 mb-2 font-medium">
+            Neste 12 terminer
+            {gjenTerminer != null && isFinite(gjenTerminer) && gjenTerminer <= 12 && (
+              <span className="ml-2 text-blue-600">(fullt nedbetalt i løpet av denne perioden)</span>
+            )}
+          </div>
           <table className="w-full text-xs">
             <thead>
               <tr className="text-gray-400">
@@ -282,7 +346,7 @@ function LoanCard({ loan, assetName, onEdit, onDelete }: { loan: Loan; assetName
               {(() => {
                 const rows = [];
                 const r = (loan.interest_rate!) / 100 / (loan.installments_per_year ?? DEFAULT_INSTALLMENTS);
-                let balance = loan.remaining_debt ?? loan.loan_amount!;
+                let balance = restgjeld;
                 const now = new Date();
                 for (let i = 0; i < 12 && balance > 0; i++) {
                   const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
@@ -302,9 +366,10 @@ function LoanCard({ loan, assetName, onEdit, onDelete }: { loan: Loan; assetName
               })()}
             </tbody>
           </table>
-          {totalRenter != null && (
-            <div className="mt-3 text-xs text-gray-400 text-right">
-              Totale rentekostnader: <span className="text-red-500 font-medium">{fmt(totalRenter)}</span>
+          {totalRenter != null && totalBetalt != null && (
+            <div className="mt-3 text-xs text-gray-400 text-right space-y-0.5">
+              <div>Gjenstående rentekostnader: <span className="text-red-500 font-medium">{fmt(totalRenter)}</span></div>
+              <div>Gjenstående totalt betalt: <span className="text-gray-600 font-medium">{fmt(totalBetalt)}</span></div>
             </div>
           )}
         </div>
