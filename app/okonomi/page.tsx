@@ -201,7 +201,7 @@ export default async function OkonomiPage({
         .not("estimated_cost", "is", null)
         .gt("estimated_cost", 0),
       supabase.from("planned_expenses").select("*").order("date"),
-      supabase.from("savings_accounts").select("name, balance, monthly_amount").eq("is_buffer", true),
+      supabase.from("savings_accounts").select("name, balance, monthly_amount, budget_item_id").eq("is_buffer", true),
     ]);
 
     const categories = (categoriesResult.data ?? []).map((cat) => ({

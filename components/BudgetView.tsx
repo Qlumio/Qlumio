@@ -57,6 +57,7 @@ type BufferAccount = {
   name: string;
   balance: number;
   monthly_amount: number;
+  budget_item_id?: string | null;
 };
 
 type Props = {
@@ -171,6 +172,11 @@ export default function BudgetView({
   const incomeCat = categories.find((c) => c.type === "income");
   const expenseCats = categories.filter((c) => ["loan", "expense", "insurance", "savings"].includes(c.type));
 
+  // IDs til avsetningskonto-budsjettposter — skal IKKE telles som utgifter
+  const bufferItemIds = new Set(
+    bufferAccounts.map((a) => a.budget_item_id).filter((id): id is string => !!id)
+  );
+
   const getMaintenanceMonthTotal = (year: number, month: number): number =>
     maintenanceTasks.filter((t) => { const d = new Date(t.due_date + "T00:00:00"); return d.getFullYear() === year && d.getMonth() + 1 === month; })
       .reduce((s, t) => s + t.estimated_cost, 0);
@@ -183,28 +189,35 @@ export default function BudgetView({
   const getPlannedAnnualTotal = (): number =>
     plannedExpenses.filter((e) => new Date(e.date + "T00:00:00").getFullYear() === selectedYear).reduce((s, e) => s + e.amount, 0);
 
-  const getRestMonth = (year: number, month: number) => {
-    const inc = incomeCat ? getCatMonthTotal(incomeCat, year, month) : 0;
-    const exp = expenseCats.reduce((s, c) => s + getCatMonthTotal(c, year, month), 0);
-    return inc - exp - getMaintenanceMonthTotal(year, month) - getPlannedMonthTotal(year, month);
-  };
-  const getRestAnnual = () => {
-    const inc = incomeCat ? getCatAnnualTotal(incomeCat) : 0;
-    const exp = expenseCats.reduce((s, c) => s + getCatAnnualTotal(c), 0);
-    return inc - exp - getMaintenanceAnnualTotal() - getPlannedAnnualTotal();
-  };
+  // Beregn utgifter EKSKLUDERT avsetningskonto-poster (skal ikke dobbel-telles)
+  const getExpensesExclBufferMonth = (year: number, month: number): number =>
+    expenseCats.reduce((s, c) =>
+      s + c.items.reduce((cs, i) =>
+        bufferItemIds.has(i.id) ? cs : cs + getVal(i.id, year, month), 0), 0)
+    + getMaintenanceMonthTotal(year, month) + getPlannedMonthTotal(year, month);
 
-  // Sum inntekter / Sum utgifter (inkl. engangsutgifter) for resultatsammendrag
+  const getExpensesExclBufferAnnual = (): number =>
+    expenseCats.reduce((s, c) =>
+      s + c.items.reduce((cs, i) =>
+        bufferItemIds.has(i.id) ? cs : cs + getAnnualTotal(i.id), 0), 0)
+    + getMaintenanceAnnualTotal() + getPlannedAnnualTotal();
+
   const getIncomeMonth = (year: number, month: number) =>
     incomeCat ? getCatMonthTotal(incomeCat, year, month) : 0;
   const getIncomeAnnual = () =>
     incomeCat ? getCatAnnualTotal(incomeCat) : 0;
+
+  // Sum utgifter = ekskl. avsetning
   const getTotalExpensesMonth = (year: number, month: number) =>
-    expenseCats.reduce((s, c) => s + getCatMonthTotal(c, year, month), 0)
-    + getMaintenanceMonthTotal(year, month) + getPlannedMonthTotal(year, month);
+    getExpensesExclBufferMonth(year, month);
   const getTotalExpensesAnnual = () =>
-    expenseCats.reduce((s, c) => s + getCatAnnualTotal(c), 0)
-    + getMaintenanceAnnualTotal() + getPlannedAnnualTotal();
+    getExpensesExclBufferAnnual();
+
+  // Resultat = inntekter − utgifter (ekskl. avsetning)
+  const getRestMonth = (year: number, month: number) =>
+    getIncomeMonth(year, month) - getExpensesExclBufferMonth(year, month);
+  const getRestAnnual = () =>
+    getIncomeAnnual() - getExpensesExclBufferAnnual();
 
   // ── Sparingsprojeksjon ───────────────────────────────────────────────────────
 
@@ -223,7 +236,9 @@ export default function BudgetView({
 
   const getSimRestMonth = (year: number, month: number): number => {
     const inc = incomeCat ? getSimCatMonthTotal(incomeCat, year, month) : 0;
-    const exp = expenseCats.reduce((s, c) => s + getSimCatMonthTotal(c, year, month), 0);
+    const exp = expenseCats.reduce((s, c) =>
+      s + c.items.reduce((cs, i) =>
+        bufferItemIds.has(i.id) ? cs : cs + getSimVal(i.id, c.id, year, month), 0), 0);
     return inc - exp - getMaintenanceMonthTotal(year, month) - getPlannedMonthTotal(year, month);
   };
 
@@ -245,13 +260,27 @@ export default function BudgetView({
   const bufferStartBalance = bufferAccounts.reduce((s, a) => s + a.balance, 0);
   const bufferMonthly = bufferAccounts.reduce((s, a) => s + a.monthly_amount, 0);
 
-  const bufferSaldo: { year: number; month: number; balance: number; contribution: number; costs: number }[] = [];
+  const bufferSaldo: {
+    year: number; month: number; balance: number;
+    contribution: number; draw: number; costs: number;
+  }[] = [];
   if (bufferAccounts.length > 0) {
     let running = bufferStartBalance;
     for (const col of monthCols) {
+      const resultat = getRestMonth(col.year, col.month);
       const costs = getMaintenanceMonthTotal(col.year, col.month) + getPlannedMonthTotal(col.year, col.month);
-      running = running + bufferMonthly - costs;
-      bufferSaldo.push({ year: col.year, month: col.month, balance: running, contribution: bufferMonthly, costs });
+      // Overskudd → sett av inntil planlagt månedlig beløp
+      // Underskudd → trekk fra buffer (engangsutgifter er allerede inkl. i resultat)
+      let contribution = 0;
+      let draw = 0;
+      if (resultat > 0) {
+        contribution = Math.min(resultat, bufferMonthly);
+        running += contribution;
+      } else {
+        draw = Math.abs(resultat);
+        running -= draw;
+      }
+      bufferSaldo.push({ year: col.year, month: col.month, balance: running, contribution, draw, costs });
     }
   }
 
@@ -630,7 +659,9 @@ export default function BudgetView({
 
                       {/* Sum utgifter */}
                       <tr className="bg-gray-50/40">
-                        <td className="sticky left-0 bg-gray-50/40 px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">Sum utgifter</td>
+                        <td className="sticky left-0 bg-gray-50/40 px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                          Sum utgifter{bufferItemIds.size > 0 ? <span className="text-gray-400 font-normal normal-case tracking-normal ml-1">(ekskl. avsetning)</span> : null}
+                        </td>
                         {monthCols.map((col) => (
                           <td key={`exp-${col.year}-${col.month}`} className={`text-right px-2 py-2 text-sm font-semibold text-gray-700 ${col.isCurrent ? "bg-gray-100/80" : ""}`}>
                             {fmt(getTotalExpensesMonth(col.year, col.month))}
@@ -665,30 +696,6 @@ export default function BudgetView({
                         </tr>
                       )}
 
-                      {/* Disponibelt etter avsetning */}
-                      {rec > 0 && (
-                        <tr className="border-t border-gray-200">
-                          <td className="sticky left-0 bg-white px-4 py-2.5">
-                            <div className="text-sm font-bold text-gray-900">Disponibelt etter avsetning</div>
-                          </td>
-                          {monthCols.map((col) => {
-                            const disp = getRestMonth(col.year, col.month) - rec;
-                            const ok = disp >= 0;
-                            return (
-                              <td key={`disp-${col.year}-${col.month}`} className={`text-right px-2 py-2.5 ${col.isCurrent ? "bg-gray-50" : ""}`}>
-                                <div className={`text-sm font-bold ${ok ? "text-green-600" : "text-orange-500"}`}>{fmt(disp)}</div>
-                                {!ok && <div className="text-xs text-orange-400 mt-0.5">mangler {fmt(Math.abs(disp))}</div>}
-                              </td>
-                            );
-                          })}
-                          <td className="text-right px-2 py-2.5">
-                            {(() => {
-                              const dispAnnual = getRestAnnual() - rec * 12;
-                              return <div className={`text-sm font-bold ${dispAnnual >= 0 ? "text-green-600" : "text-orange-500"}`}>{fmt(dispAnnual)}</div>;
-                            })()}
-                          </td>
-                        </tr>
-                      )}
                     </>
                   );
                 })()}
@@ -723,28 +730,36 @@ export default function BudgetView({
 
                     {showBufferDetails && (
                       <>
-                        {/* + Avsetning per måned */}
+                        {/* + Bidrag fra overskudd */}
                         <tr className="bg-blue-50/20">
-                          <td className="sticky left-0 bg-blue-50/20 px-4 py-1.5 pl-10 text-xs text-emerald-700">+ Avsetning</td>
+                          <td className="sticky left-0 bg-blue-50/20 px-4 py-1.5 pl-10 text-xs text-emerald-700">
+                            + Avsetning (fra overskudd)
+                          </td>
                           {bufferSaldo.map((s) => (
                             <td key={`buf-contrib-${s.year}-${s.month}`} className={`text-right px-2 py-1.5 text-xs text-emerald-600 ${monthCols.find((c) => c.year === s.year && c.month === s.month)?.isCurrent ? "bg-blue-100/60" : ""}`}>
                               {s.contribution > 0 ? `+${s.contribution.toLocaleString("nb-NO")}` : "–"}
                             </td>
                           ))}
-                          <td className="text-right px-2 py-1.5 text-xs text-gray-400">{(bufferMonthly * 12).toLocaleString("nb-NO")}</td>
+                          <td className="text-right px-2 py-1.5 text-xs text-gray-400">
+                            {bufferSaldo.reduce((t, s) => t + s.contribution, 0) > 0
+                              ? bufferSaldo.reduce((t, s) => t + s.contribution, 0).toLocaleString("nb-NO")
+                              : "–"}
+                          </td>
                         </tr>
 
-                        {/* − Engangsutgifter per måned */}
+                        {/* − Trekk fra buffer (underskudd) */}
                         <tr className="bg-blue-50/20 border-b border-blue-100/60">
-                          <td className="sticky left-0 bg-blue-50/20 px-4 py-1.5 pl-10 text-xs text-red-600">− Engangsutgifter</td>
+                          <td className="sticky left-0 bg-blue-50/20 px-4 py-1.5 pl-10 text-xs text-red-600">
+                            − Trekk (underskudd)
+                          </td>
                           {bufferSaldo.map((s) => (
-                            <td key={`buf-costs-${s.year}-${s.month}`} className={`text-right px-2 py-1.5 text-xs ${s.costs > 0 ? "text-red-500 font-medium" : "text-gray-300"} ${monthCols.find((c) => c.year === s.year && c.month === s.month)?.isCurrent ? "bg-blue-100/60" : ""}`}>
-                              {s.costs > 0 ? `-${s.costs.toLocaleString("nb-NO")}` : "–"}
+                            <td key={`buf-draw-${s.year}-${s.month}`} className={`text-right px-2 py-1.5 text-xs ${s.draw > 0 ? "text-red-500 font-medium" : "text-gray-300"} ${monthCols.find((c) => c.year === s.year && c.month === s.month)?.isCurrent ? "bg-blue-100/60" : ""}`}>
+                              {s.draw > 0 ? `-${s.draw.toLocaleString("nb-NO")}` : "–"}
                             </td>
                           ))}
                           <td className="text-right px-2 py-1.5 text-xs text-gray-400">
-                            {(getMaintenanceAnnualTotal() + getPlannedAnnualTotal()) > 0
-                              ? `-${(getMaintenanceAnnualTotal() + getPlannedAnnualTotal()).toLocaleString("nb-NO")}`
+                            {bufferSaldo.reduce((t, s) => t + s.draw, 0) > 0
+                              ? `-${bufferSaldo.reduce((t, s) => t + s.draw, 0).toLocaleString("nb-NO")}`
                               : "–"}
                           </td>
                         </tr>

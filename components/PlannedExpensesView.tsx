@@ -106,12 +106,10 @@ export default function PlannedExpensesView({
     ? relevantExpenses
     : relevantExpenses.filter((e) => e.category === activeCategory);
 
-  // Bygg felles DisplayItem-liste — vedlikehold vises alltid (ignorerer kategorifilter)
+  // Bygg felles DisplayItem-liste — alt vises, sortert på dato
   const allItems: DisplayItem[] = [
     ...filteredExpenses.map((e): DisplayItem => ({ kind: "expense", data: e })),
-    ...(activeCategory === "alle"
-      ? maintenanceTasks.map((t): DisplayItem => ({ kind: "maintenance", data: t }))
-      : []),
+    ...maintenanceTasks.map((t): DisplayItem => ({ kind: "maintenance", data: t })),
   ].sort((a, b) => {
     const da = a.kind === "expense" ? a.data.date : a.data.due_date;
     const db = b.kind === "expense" ? b.data.date : b.data.due_date;
@@ -175,23 +173,6 @@ export default function PlannedExpensesView({
           </div>
         )}
 
-        {/* Kategorifilter */}
-        <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.value}
-              onClick={() => setActiveCategory(cat.value)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
-                activeCategory === cat.value
-                  ? "bg-violet-500 text-white"
-                  : "bg-white text-gray-600 hover:bg-gray-100"
-              }`}
-            >
-              <span>{cat.emoji}</span>
-              <span>{cat.label}</span>
-            </button>
-          ))}
-        </div>
 
         {/* Tom tilstand */}
         {allItems.length === 0 && (
