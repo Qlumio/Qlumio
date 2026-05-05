@@ -31,10 +31,22 @@ export type InnsiktAsset = {
   estimated_value: number | null;
 };
 
+export type CashflowMonth = {
+  year: number;
+  month: number;
+  label: string;
+  income: number;
+  expenses: number;
+  net: number;
+  bufferBalance: number;
+  isCurrent: boolean;
+};
+
 type Props = {
   loans: InnsiktLoan[];
   savingsItems: InnsiktSavingsItem[];
   assets?: InnsiktAsset[];
+  cashflowMonths?: CashflowMonth[];
   embedded?: boolean;
 };
 
@@ -360,12 +372,198 @@ function SavingsCard({ item }: { item: InnsiktSavingsItem }) {
 
 // ─── Hovedkomponent ───────────────────────────────────────────────────────────
 
+// ─── Likviditet & Cashflow ────────────────────────────────────────────────────
+
+function CashflowChart({ months }: { months: CashflowMonth[] }) {
+  const nets = months.map((m) => m.net);
+  const maxVal = Math.max(...nets, 1);
+  const minVal = Math.min(...nets, -1);
+  const range = Math.max(maxVal - minVal, 1);
+
+  const W = 580, H = 130;
+  const barW = 32, gap = 14;
+  const padL = 6, padR = 6, padTop = 8, padBottom = 26;
+  const chartH = H - padTop - padBottom;
+  const zeroY = padTop + (maxVal / range) * chartH;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+      {/* Zero line */}
+      <line x1={padL} y1={zeroY} x2={W - padR} y2={zeroY} stroke="#e5e7eb" strokeWidth={1} />
+      {maxVal > 0 && <text x={padL} y={padTop + 8} fontSize={8} fill="#d1d5db">{(maxVal / 1000).toFixed(0)}k</text>}
+      {minVal < 0 && <text x={padL} y={H - padBottom - 2} fontSize={8} fill="#d1d5db">{(minVal / 1000).toFixed(0)}k</text>}
+
+      {months.map((m, i) => {
+        const x = padL + i * (barW + gap) + gap / 2;
+        const rawH = (Math.abs(m.net) / range) * chartH;
+        const h = Math.max(2, rawH);
+        const y = m.net >= 0 ? zeroY - h : zeroY;
+        const isPos = m.net >= 0;
+
+        return (
+          <g key={i}>
+            {m.isCurrent && (
+              <rect x={x - 3} y={padTop} width={barW + 6} height={chartH} rx={2} fill="#eff6ff" />
+            )}
+            <rect
+              x={x} y={y} width={barW} height={h} rx={3}
+              fill={isPos ? "#22c55e" : "#ef4444"}
+              opacity={m.isCurrent ? 1 : 0.6}
+            >
+              <title>{m.label}: {m.net >= 0 ? "+" : ""}{m.net.toLocaleString("nb-NO")} kr</title>
+            </rect>
+            <text
+              x={x + barW / 2} y={H - 8}
+              textAnchor="middle" fontSize={8.5}
+              fill={m.isCurrent ? "#3b82f6" : "#9ca3af"}
+              fontWeight={m.isCurrent ? "600" : "400"}
+            >
+              {m.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function LikviditetSection({ months }: { months: CashflowMonth[] }) {
+  const [showTable, setShowTable] = useState(false);
+
+  const hasData = months.some((m) => m.income > 0);
+  const avgIncome = months[0]?.income ?? 0;
+  const avgExpenses = months[0]?.expenses ?? 0;
+  const avgNet = months[0]?.net ?? 0;
+  const currentBuffer = months[0]?.bufferBalance ?? 0;
+  const surplusMonths = months.filter((m) => m.net >= 0).length;
+
+  if (!hasData) {
+    return (
+      <section className="mb-8">
+        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">💸 Likviditet & cashflow</h2>
+        <div className="bg-white rounded-xl p-6 text-center">
+          <p className="text-gray-400 text-sm">Ingen budsjettdata funnet.</p>
+          <p className="text-xs text-gray-300 mt-1">Fyll inn inntekter og utgifter i Budsjett-fanen.</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mb-8">
+      <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">💸 Likviditet & cashflow</h2>
+
+      {/* Nøkkeltall */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="bg-white rounded-xl p-3 text-center">
+          <div className="text-xs text-gray-400 mb-0.5">Månedlig inntekt</div>
+          <div className="text-base font-bold text-gray-800">{(avgIncome / 1000).toFixed(0)}k kr</div>
+        </div>
+        <div className="bg-white rounded-xl p-3 text-center">
+          <div className="text-xs text-gray-400 mb-0.5">Månedlige utgifter</div>
+          <div className="text-base font-bold text-gray-800">{(avgExpenses / 1000).toFixed(0)}k kr</div>
+        </div>
+        <div className={`rounded-xl p-3 text-center ${avgNet >= 0 ? "bg-green-50" : "bg-red-50"}`}>
+          <div className="text-xs text-gray-400 mb-0.5">Netto per måned</div>
+          <div className={`text-base font-bold ${avgNet >= 0 ? "text-green-700" : "text-red-600"}`}>
+            {avgNet >= 0 ? "+" : ""}{(avgNet / 1000).toFixed(1)}k kr
+          </div>
+        </div>
+        <div className="bg-blue-50 rounded-xl p-3 text-center">
+          <div className="text-xs text-gray-400 mb-0.5">Saldo avsetning nå</div>
+          <div className="text-base font-bold text-blue-700">
+            {currentBuffer > 0 ? (currentBuffer / 1000).toFixed(0) + "k kr" : "–"}
+          </div>
+        </div>
+      </div>
+
+      {/* Diagram */}
+      <div className="bg-white rounded-xl p-4 mb-3">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-medium text-gray-600">Netto cashflow per måned</span>
+          <span className="text-xs text-gray-400">{surplusMonths}/12 måneder i pluss</span>
+        </div>
+        <CashflowChart months={months} />
+        <div className="flex gap-4 mt-2 justify-end">
+          <span className="flex items-center gap-1.5 text-xs text-gray-400"><span className="w-3 h-3 rounded-sm bg-green-500 opacity-60 inline-block" />Overskudd</span>
+          <span className="flex items-center gap-1.5 text-xs text-gray-400"><span className="w-3 h-3 rounded-sm bg-red-500 opacity-60 inline-block" />Underskudd</span>
+        </div>
+      </div>
+
+      {/* Avsetningssaldo */}
+      {currentBuffer > 0 && (
+        <div className="bg-white rounded-xl p-4 mb-3">
+          <div className="text-xs font-medium text-gray-600 mb-3">Saldo avsetningskonto over 12 måneder</div>
+          <div className="flex gap-0 overflow-x-auto">
+            {months.map((m, i) => {
+              const maxBuf = Math.max(...months.map((x) => x.bufferBalance), 1);
+              const fillPct = Math.max(0, Math.min(100, (m.bufferBalance / maxBuf) * 100));
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-[36px]">
+                  <div className="text-xs font-medium text-blue-700">{(m.bufferBalance / 1000).toFixed(0)}<span className="text-gray-300">k</span></div>
+                  <div className="w-full h-8 bg-gray-100 rounded-sm overflow-hidden flex items-end">
+                    <div
+                      className={`w-full rounded-sm transition-all ${m.isCurrent ? "bg-blue-500" : "bg-blue-300"}`}
+                      style={{ height: `${fillPct}%` }}
+                    />
+                  </div>
+                  <div className={`text-xs ${m.isCurrent ? "text-blue-600 font-semibold" : "text-gray-400"}`}>{m.label}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Detaljer-tabell */}
+      <button
+        onClick={() => setShowTable((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-2.5 bg-white rounded-xl text-xs text-gray-400 hover:bg-gray-50 transition-colors"
+      >
+        <span>Vis månedlig oversikt</span>
+        <span className={`transition-transform ${showTable ? "rotate-180" : ""}`}>▾</span>
+      </button>
+
+      {showTable && (
+        <div className="mt-1 bg-white rounded-xl overflow-hidden">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50">
+                <th className="text-left px-4 py-2 font-medium text-gray-400">Måned</th>
+                <th className="text-right px-3 py-2 font-medium text-green-500">Inntekt</th>
+                <th className="text-right px-3 py-2 font-medium text-red-400">Utgifter</th>
+                <th className="text-right px-3 py-2 font-medium text-gray-500">Netto</th>
+                <th className="text-right px-4 py-2 font-medium text-blue-400">Avsetning</th>
+              </tr>
+            </thead>
+            <tbody>
+              {months.map((m, i) => (
+                <tr key={i} className={`border-b border-gray-50 ${m.isCurrent ? "bg-blue-50/40" : "hover:bg-gray-50"}`}>
+                  <td className={`px-4 py-2 ${m.isCurrent ? "font-semibold text-blue-600" : "text-gray-600"}`}>{m.label}</td>
+                  <td className="text-right px-3 py-2 text-green-700">{m.income.toLocaleString("nb-NO")}</td>
+                  <td className="text-right px-3 py-2 text-red-600">{m.expenses.toLocaleString("nb-NO")}</td>
+                  <td className={`text-right px-3 py-2 font-semibold ${m.net >= 0 ? "text-green-700" : "text-red-600"}`}>
+                    {m.net >= 0 ? "+" : ""}{m.net.toLocaleString("nb-NO")}
+                  </td>
+                  <td className="text-right px-4 py-2 text-blue-700">
+                    {m.bufferBalance > 0 ? m.bufferBalance.toLocaleString("nb-NO") : "–"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 const ASSET_EMOJIS: Record<string, string> = {
   hus: "🏠", bil: "🚗", hytte: "🏡", bat: "⛵", motorsykkel: "🏍️",
   elsykkel: "🚲", varmepumpe: "♨️", robotklipper: "🤖", hvitevarer: "🧺", annet: "📦",
 };
 
-export default function InnsiktView({ loans, savingsItems, assets = [], embedded = false }: Props) {
+export default function InnsiktView({ loans, savingsItems, assets = [], cashflowMonths, embedded = false }: Props) {
   const loansWithData = loans.filter(
     (l) => l.remaining_debt != null && l.interest_rate != null && l.monthly_payment != null
   );
@@ -416,6 +614,11 @@ export default function InnsiktView({ loans, savingsItems, assets = [], embedded
               </div>
             )}
           </div>
+        )}
+
+        {/* ── Likviditet & cashflow ── */}
+        {cashflowMonths && cashflowMonths.length > 0 && (
+          <LikviditetSection months={cashflowMonths} />
         )}
 
         {/* ── Lån ── */}

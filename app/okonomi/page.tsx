@@ -111,17 +111,65 @@ export default async function OkonomiPage({
 
   // ── Innsikt ───────────────────────────────────────────────────────────────────
   } else if (tab === "innsikt") {
-    const [{ data: loansRaw }, { data: savingsRaw }, { data: assetsRaw }] = await Promise.all([
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const d12 = new Date(now.getFullYear(), now.getMonth() + 13, 1);
+    const twelveMonthsOutStr = `${d12.getFullYear()}-${String(d12.getMonth() + 1).padStart(2, "0")}-01`;
+
+    const [
+      { data: loansRaw },
+      { data: savingsRaw },
+      { data: assetsRaw },
+      { data: categoriesRaw },
+      { data: bufferRaw },
+      { data: plannedRaw },
+    ] = await Promise.all([
       supabase.from("loans").select("*").order("created_at"),
       supabase.from("savings_accounts").select("*").order("created_at"),
       supabase.from("assets").select("id, name, type, estimated_value").order("name"),
+      supabase.from("budget_categories").select("*, budget_items(*)").order("sort_order"),
+      supabase.from("savings_accounts").select("balance, monthly_amount").eq("is_buffer", true),
+      supabase.from("planned_expenses").select("date, amount").gte("date", todayStr).lte("date", twelveMonthsOutStr).order("date"),
     ]);
+
+    // ── Beregn cashflow-måneder ──────────────────────────────────────────────
+    const CF_MONTHS = ["jan","feb","mar","apr","mai","jun","jul","aug","sep","okt","nov","des"];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const incomeCatRaw = (categoriesRaw ?? []).find((c: any) => c.type === "income");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const monthlyIncome = incomeCatRaw ? (incomeCatRaw.budget_items ?? []).reduce((s: number, i: any) => s + (Number(i.monthly_default) || 0), 0) : 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const monthlyExpenses = (categoriesRaw ?? []).filter((c: any) => c.type !== "income").flatMap((c: any) => c.budget_items ?? []).reduce((s: number, i: any) => s + (Number(i.monthly_default) || 0), 0);
+
+    const bufferStartBalance = (bufferRaw ?? []).reduce((s: number, a: { balance: number }) => s + (a.balance ?? 0), 0);
+    const bufferMonthly = (bufferRaw ?? []).reduce((s: number, a: { monthly_amount: number }) => s + (a.monthly_amount ?? 0), 0);
+
+    let runningBuffer = bufferStartBalance;
+    const cashflowMonths = Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() + i);
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      const monthStr = `${year}-${String(month).padStart(2, "0")}`;
+      const oneOff = (plannedRaw ?? []).filter((e: { date: string; amount: number }) => e.date.startsWith(monthStr)).reduce((s: number, e: { date: string; amount: number }) => s + (e.amount ?? 0), 0);
+      runningBuffer = runningBuffer + bufferMonthly - oneOff;
+      return {
+        year, month,
+        label: CF_MONTHS[d.getMonth()] + (year !== now.getFullYear() ? ` ${String(year).slice(2)}` : ""),
+        income: monthlyIncome,
+        expenses: monthlyExpenses,
+        net: monthlyIncome - monthlyExpenses,
+        bufferBalance: Math.round(runningBuffer),
+        isCurrent: i === 0,
+      };
+    });
 
     content = (
       <InnsiktView
         loans={(loansRaw ?? []) as InnsiktLoan[]}
         savingsItems={(savingsRaw ?? []) as { id: string; name: string; balance: number; monthly_amount: number }[]}
         assets={(assetsRaw ?? []) as { id: string; name: string; type: string; estimated_value: number | null }[]}
+        cashflowMonths={cashflowMonths}
         embedded
       />
     );

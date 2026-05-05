@@ -197,31 +197,6 @@ export default function BudgetView({
   // ── Sparingsprojeksjon ───────────────────────────────────────────────────────
 
   const savingsCat = categories.find((c) => c.type === "savings");
-  const bufferItem = savingsCat?.items.find((i) =>
-    i.name.toLowerCase().includes("buffer") || i.name.toLowerCase().includes("avsetning")
-  ) ?? null;
-
-  const getSavingsBalance = useCallback(
-    (itemId: string, upToMonth: number, year: number): number => {
-      let bal = startingBalances[itemId] ?? 0;
-      for (let m = 1; m <= upToMonth; m++) bal += getVal(itemId, year, m);
-      return bal;
-    },
-    [startingBalances, getVal]
-  );
-
-  const getBufferBalance = useCallback(
-    (itemId: string, upToMonth: number, year: number): number => {
-      let bal = getSavingsBalance(itemId, upToMonth, year);
-      for (let m = 1; m <= upToMonth; m++) {
-        bal -= getMaintenanceMonthTotal(year, m);
-        bal -= getPlannedMonthTotal(year, m);
-      }
-      return bal;
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [getSavingsBalance]
-  );
 
   // ── Simulert budsjett ────────────────────────────────────────────────────────
 
@@ -242,40 +217,6 @@ export default function BudgetView({
 
   const getSimRestAnnual = (): number =>
     monthCols.reduce((s, col) => s + getSimRestMonth(col.year, col.month), 0);
-
-  // ── Helseindikator ───────────────────────────────────────────────────────────
-
-  const nowDate = new Date();
-  const healthMonth = nowDate.getMonth() + 1;
-  const healthYear = nowDate.getFullYear();
-  const monthlyIncome = incomeCat ? getCatMonthTotal(incomeCat, healthYear, healthMonth) : 0;
-  const monthlySavingsTotal = savingsCat ? getCatMonthTotal(savingsCat, healthYear, healthMonth) : 0;
-  const monthlyCashFlow = monthlyIncome > 0 ? getRestMonth(healthYear, healthMonth) : 0;
-  const savingsRate = monthlyIncome > 0 ? Math.round((monthlySavingsTotal / monthlyIncome) * 100) : 0;
-  const loanCat = categories.find((c) => c.type === "loan");
-  const monthlyLoans = loanCat ? getCatMonthTotal(loanCat, healthYear, healthMonth) : 0;
-  const debtRatio = monthlyIncome > 0 ? Math.round((monthlyLoans / monthlyIncome) * 100) : 0;
-
-  let bufferWarning: string | null = null;
-  if (bufferItem) {
-    for (let i = 0; i < 6; i++) {
-      const d = new Date(healthYear, healthMonth - 1 + i, 1);
-      const bal = getBufferBalance(bufferItem.id, d.getMonth() + 1, d.getFullYear());
-      if (bal < 0) { bufferWarning = MONTH_NAMES[d.getMonth()] + (d.getFullYear() !== healthYear ? ` ${d.getFullYear()}` : ""); break; }
-    }
-  }
-
-  const healthStatus: "nodata" | "red" | "yellow" | "green" =
-    monthlyIncome === 0 ? "nodata" : monthlyCashFlow < 0 ? "red" : savingsRate < 5 || bufferWarning ? "yellow" : "green";
-
-  const healthSuggestions: string[] = [];
-  if (monthlyIncome > 0) {
-    if (monthlyCashFlow < 0) healthSuggestions.push(`Månedlige utgifter overstiger inntekt med ${Math.abs(monthlyCashFlow).toLocaleString("nb-NO")} kr. Gjennomgå faste utgifter.`);
-    if (savingsRate < 10 && savingsRate >= 0) healthSuggestions.push(`Sparerate er ${savingsRate}%. Eksperter anbefaler minimum 10% av inntekt.`);
-    if (debtRatio > 40) healthSuggestions.push(`Lånebelastning er ${debtRatio}% av inntekt – vurder ekstra nedbetaling.`);
-    if (bufferWarning) healthSuggestions.push(`Avsetningskontoen kan gå i minus i ${bufferWarning}. Vurder å øke månedlig avsetning.`);
-    if (monthlyCashFlow > monthlyIncome * 0.2 && savingsRate < 15) healthSuggestions.push(`Du har god margin. Vurder å øke sparingen.`);
-  }
 
   // ── Prognose ─────────────────────────────────────────────────────────────────
 
@@ -449,38 +390,6 @@ export default function BudgetView({
           ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "actual" && (
         <>
-          {/* Helseindikator */}
-          {healthStatus !== "nodata" && (
-            <div className={`mx-4 mt-3 mb-1 rounded-xl p-4 border ${
-              healthStatus === "green" ? "bg-green-50/50 border-green-100/60" :
-              healthStatus === "yellow" ? "bg-amber-50/50 border-amber-100/60" :
-              "bg-red-50/50 border-red-100/60"}`}>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{healthStatus === "green" ? "🟢" : healthStatus === "yellow" ? "🟡" : "🔴"}</span>
-                  <span className="font-semibold text-sm text-gray-800">
-                    {healthStatus === "green" ? "God økonomisk helse" : healthStatus === "yellow" ? "Noen punkter å se på" : "Økonomi under press"}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-4 text-xs text-gray-500">
-                  <span>Sparerate: <b className={savingsRate >= 10 ? "text-green-600" : savingsRate >= 5 ? "text-amber-600" : "text-red-500"}>{savingsRate}%</b></span>
-                  <span>Lånbelastning: <b className={debtRatio <= 30 ? "text-green-600" : debtRatio <= 40 ? "text-amber-600" : "text-red-500"}>{debtRatio}%</b></span>
-                  <span>Månedlig rest: <b className={monthlyCashFlow >= 0 ? "text-green-600" : "text-red-500"}>{monthlyCashFlow.toLocaleString("nb-NO")} kr</b></span>
-                  {bufferStartBalance > 0 && (
-                    <span>Saldo avsetning: <b className={bufferStartBalance > 0 ? "text-blue-600" : "text-red-500"}>{bufferStartBalance.toLocaleString("nb-NO")} kr</b></span>
-                  )}
-                </div>
-              </div>
-              {healthSuggestions.length > 0 && (
-                <ul className="space-y-1">
-                  {healthSuggestions.map((s, i) => (
-                    <li key={i} className="text-xs text-gray-600 flex items-start gap-1.5"><span className="mt-0.5 flex-shrink-0">💡</span>{s}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-
           <p className="px-4 py-2 text-xs text-gray-400">
             Klikk et beløp for å redigere. Første verdi du setter gjelder alle måneder.{" "}
             <span className="text-blue-500">Blå tall</span> er månedlige unntak.
