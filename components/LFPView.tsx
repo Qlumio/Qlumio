@@ -411,15 +411,17 @@ export default function LFPView({ insurances: init_i, loans: init_l, pensions: i
           </div>
         </div>
 
-        {/* Faner */}
-        <div className="flex gap-1 mb-6 bg-white p-1 rounded-xl">
-          {(["forsikring", "lan", "pensjon"] as Tab[]).map((tab) => (
-            <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === tab ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-900"}`}>
-              {tab === "forsikring" ? `Forsikringer (${insurances.length})` : tab === "lan" ? `Lån (${loans.length})` : `Pensjon (${pensions.length})`}
-            </button>
-          ))}
-        </div>
+        {/* Faner – vises ikke når embedded, da OkonomiTabBar håndterer navigasjon */}
+        {!embedded && (
+          <div className="flex gap-1 mb-6 bg-white p-1 rounded-xl">
+            {(["forsikring", "lan", "pensjon"] as Tab[]).map((tab) => (
+              <button key={tab} onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === tab ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-900"}`}>
+                {tab === "forsikring" ? `Forsikringer (${insurances.length})` : tab === "lan" ? `Lån (${loans.length})` : `Pensjon (${pensions.length})`}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* ── Forsikringer ── */}
         {activeTab === "forsikring" && (

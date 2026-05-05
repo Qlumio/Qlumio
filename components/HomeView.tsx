@@ -8,7 +8,7 @@ import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
 
 // ─── Konstanter ───────────────────────────────────────────────────────────────
 
-const FEED_SEEN_KEY = "qlumio_feed_seen";
+const feedSeenKey = (todayStr: string) => `qlumio_feed_seen_${todayStr}`;
 
 const ALL_MODULES = [
   { href: "/aktiviteter", title: "Aktiviteter", icon: "📅", roles: ["admin", "member"], description: "Ukentlig oversikt over familiens avtaler" },
@@ -317,9 +317,10 @@ export default function HomeView({
   useEffect(() => {
     if (!freshUser) return;
 
+    const SEEN_KEY = feedSeenKey(todayStr);
     let seenMap: Record<string, string> = {};
     try {
-      const raw = localStorage.getItem(FEED_SEEN_KEY);
+      const raw = localStorage.getItem(SEEN_KEY);
       seenMap = raw ? JSON.parse(raw) : {};
     } catch { /* ignore */ }
 
@@ -332,7 +333,7 @@ export default function HomeView({
     visible.forEach((item) => {
       updated[`${item.id}_${item.type}`] = item.urgency;
     });
-    try { localStorage.setItem(FEED_SEEN_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
+    try { localStorage.setItem(SEEN_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
 
     setFeedItems(visible);
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -462,10 +462,13 @@ export default function BudgetView({
                     {healthStatus === "green" ? "God økonomisk helse" : healthStatus === "yellow" ? "Noen punkter å se på" : "Økonomi under press"}
                   </span>
                 </div>
-                <div className="flex gap-4 text-xs text-gray-500">
+                <div className="flex flex-wrap gap-4 text-xs text-gray-500">
                   <span>Sparerate: <b className={savingsRate >= 10 ? "text-green-600" : savingsRate >= 5 ? "text-amber-600" : "text-red-500"}>{savingsRate}%</b></span>
                   <span>Lånbelastning: <b className={debtRatio <= 30 ? "text-green-600" : debtRatio <= 40 ? "text-amber-600" : "text-red-500"}>{debtRatio}%</b></span>
                   <span>Månedlig rest: <b className={monthlyCashFlow >= 0 ? "text-green-600" : "text-red-500"}>{monthlyCashFlow.toLocaleString("nb-NO")} kr</b></span>
+                  {bufferStartBalance > 0 && (
+                    <span>Saldo avsetning: <b className={bufferStartBalance > 0 ? "text-blue-600" : "text-red-500"}>{bufferStartBalance.toLocaleString("nb-NO")} kr</b></span>
+                  )}
                 </div>
               </div>
               {healthSuggestions.length > 0 && (
