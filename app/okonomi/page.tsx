@@ -102,12 +102,26 @@ export default async function OkonomiPage({
 
   // ── Planlagte kostnader ───────────────────────────────────────────────────────
   } else if (tab === "planlagte") {
-    const { data: expenses } = await supabase
-      .from("planned_expenses")
-      .select("*")
-      .order("date");
+    const [{ data: expenses }, { data: maintenanceRaw }] = await Promise.all([
+      supabase.from("planned_expenses").select("*").order("date"),
+      supabase
+        .from("asset_tasks")
+        .select("id, title, due_date, estimated_cost, assets(name)")
+        .not("estimated_cost", "is", null)
+        .gt("estimated_cost", 0)
+        .order("due_date"),
+    ]);
 
-    content = <PlannedExpensesView initialExpenses={expenses ?? []} embedded />;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const maintenanceTasks = (maintenanceRaw ?? []).map((t: any) => ({
+      id: t.id,
+      title: t.title,
+      due_date: t.due_date,
+      estimated_cost: t.estimated_cost as number,
+      asset_name: (t.assets as { name: string } | null)?.name ?? "Ukjent eiendel",
+    }));
+
+    content = <PlannedExpensesView initialExpenses={expenses ?? []} maintenanceTasks={maintenanceTasks} embedded />;
 
   // ── Innsikt ───────────────────────────────────────────────────────────────────
   } else if (tab === "innsikt") {

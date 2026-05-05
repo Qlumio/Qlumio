@@ -14,6 +14,19 @@ type Expense = {
   created_at: string;
 };
 
+type MaintenanceTask = {
+  id: string;
+  title: string;
+  due_date: string;
+  estimated_cost: number;
+  asset_name: string;
+};
+
+// Felles visningstype for begge kildene
+type DisplayItem =
+  | { kind: "expense"; data: Expense }
+  | { kind: "maintenance"; data: MaintenanceTask };
+
 const CATEGORIES = [
   { value: "alle",   label: "Alle",              emoji: "📋" },
   { value: "skole",  label: "Skole / SFO",       emoji: "📚" },
@@ -40,7 +53,15 @@ function formatAmount(n: number) {
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Des"];
 
-export default function PlannedExpensesView({ initialExpenses, embedded = false }: { initialExpenses: Expense[]; embedded?: boolean }) {
+export default function PlannedExpensesView({
+  initialExpenses,
+  maintenanceTasks = [],
+  embedded = false,
+}: {
+  initialExpenses: Expense[];
+  maintenanceTasks?: MaintenanceTask[];
+  embedded?: boolean;
+}) {
   const router = useRouter();
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses);
   const [activeCategory, setActiveCategory] = useState("alle");
@@ -81,17 +102,34 @@ export default function PlannedExpensesView({ initialExpenses, embedded = false 
 
   // Filtrer ut innkjøp-kategorien – den administreres i Innkjøp-modulen
   const relevantExpenses = expenses.filter((e) => e.category !== "innkjop");
-  const filtered = activeCategory === "alle"
+  const filteredExpenses = activeCategory === "alle"
     ? relevantExpenses
     : relevantExpenses.filter((e) => e.category === activeCategory);
 
+  // Bygg felles DisplayItem-liste — vedlikehold vises alltid (ignorerer kategorifilter)
+  const allItems: DisplayItem[] = [
+    ...filteredExpenses.map((e): DisplayItem => ({ kind: "expense", data: e })),
+    ...(activeCategory === "alle"
+      ? maintenanceTasks.map((t): DisplayItem => ({ kind: "maintenance", data: t }))
+      : []),
+  ].sort((a, b) => {
+    const da = a.kind === "expense" ? a.data.date : a.data.due_date;
+    const db = b.kind === "expense" ? b.data.date : b.data.due_date;
+    return da.localeCompare(db);
+  });
+
+  // Total for "Totalt planlagt"-kortet
+  const totalAmount = allItems.reduce((s, item) =>
+    s + (item.kind === "expense" ? item.data.amount : item.data.estimated_cost), 0);
+
   // Grupper per måned
-  const grouped: Record<string, Expense[]> = {};
-  filtered.forEach((e) => {
-    const d = new Date(e.date + "T00:00:00");
+  const grouped: Record<string, DisplayItem[]> = {};
+  allItems.forEach((item) => {
+    const dateStr = item.kind === "expense" ? item.data.date : item.data.due_date;
+    const d = new Date(dateStr + "T00:00:00");
     const key = `${d.getFullYear()}-${d.getMonth()}`;
     if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(e);
+    grouped[key].push(item);
   });
 
   const today = new Date();
@@ -112,7 +150,7 @@ export default function PlannedExpensesView({ initialExpenses, embedded = false 
                 Tilbake
               </button>
               <div className="w-px h-5 bg-gray-200" />
-              <h1 className="text-lg font-semibold">Planlagte kostnader</h1>
+              <h1 className="text-lg font-semibold">Fremtidige kostnader</h1>
             </div>
           ) : <div />}
           <button
@@ -127,15 +165,13 @@ export default function PlannedExpensesView({ initialExpenses, embedded = false 
         </div>
 
         {/* Totalsum */}
-        {expenses.length > 0 && (
+        {allItems.length > 0 && (
           <div className="bg-white rounded-xl p-4 mb-4 flex items-center justify-between">
             <div>
-              <div className="text-xs text-gray-400 uppercase tracking-wide">Totalt planlagt</div>
-              <div className="text-xl font-bold mt-0.5">
-                {formatAmount(filtered.reduce((s, e) => s + e.amount, 0))}
-              </div>
+              <div className="text-xs text-gray-400 uppercase tracking-wide">Totalt fremtidige kostnader</div>
+              <div className="text-xl font-bold mt-0.5">{formatAmount(totalAmount)}</div>
             </div>
-            <div className="text-xs text-gray-400">{filtered.length} poster</div>
+            <div className="text-xs text-gray-400">{allItems.length} poster</div>
           </div>
         )}
 
@@ -158,7 +194,7 @@ export default function PlannedExpensesView({ initialExpenses, embedded = false 
         </div>
 
         {/* Tom tilstand */}
-        {filtered.length === 0 && (
+        {allItems.length === 0 && (
           <div className="text-center py-14">
             <p className="text-3xl mb-3">💸</p>
             <p className="text-gray-400 text-sm mb-3">Ingen planlagte kostnader ennå.</p>
@@ -171,7 +207,8 @@ export default function PlannedExpensesView({ initialExpenses, embedded = false 
         {/* Liste gruppert per måned */}
         {Object.entries(grouped).map(([key, items]) => {
           const [year, monthIdx] = key.split("-").map(Number);
-          const monthTotal = items.reduce((s, e) => s + e.amount, 0);
+          const monthTotal = items.reduce((s, item) =>
+            s + (item.kind === "expense" ? item.data.amount : item.data.estimated_cost), 0);
           return (
             <div key={key} className="mb-5">
               <div className="flex items-center justify-between mb-2">
@@ -181,11 +218,35 @@ export default function PlannedExpensesView({ initialExpenses, embedded = false 
                 <span className="text-xs text-gray-400">{formatAmount(monthTotal)}</span>
               </div>
               <div className="space-y-2">
-                {items.map((expense) => {
-                  const expDate = new Date(expense.date + "T00:00:00");
-                  const isPast = expDate < today;
+                {items.map((item) => {
+                  if (item.kind === "maintenance") {
+                    const t = item.data;
+                    const isPast = new Date(t.due_date + "T00:00:00") < today;
+                    return (
+                      <div key={`maint-${t.id}`} className={`p-4 bg-orange-50 rounded-xl flex items-start gap-3 border border-orange-100 ${isPast ? "opacity-60" : ""}`}>
+                        <div className="text-2xl flex-shrink-0">🔧</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-sm text-gray-900">{t.title}</div>
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <span className="text-xs text-gray-400">{formatDate(t.due_date)}</span>
+                            <span className="text-xs text-gray-400">·</span>
+                            <span className="text-xs text-orange-600 font-medium">{t.asset_name}</span>
+                            <span className="text-xs text-gray-300">·</span>
+                            <span className="text-xs text-gray-400">Vedlikehold</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                          <span className="font-semibold text-sm">{formatAmount(t.estimated_cost)}</span>
+                          <span className="text-xs text-orange-400">fra eiendeler</span>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const expense = item.data;
+                  const isPast = new Date(expense.date + "T00:00:00") < today;
                   return (
-                    <div key={expense.id} className={`p-4 bg-white rounded-xl flex items-start gap-3 ${isPast ? "opacity-60" : ""}`}>
+                    <div key={`exp-${expense.id}`} className={`p-4 bg-white rounded-xl flex items-start gap-3 ${isPast ? "opacity-60" : ""}`}>
                       <div className="text-2xl flex-shrink-0">{getCatEmoji(expense.category)}</div>
                       <div className="min-w-0 flex-1">
                         <div className="font-medium text-sm">{expense.title}</div>

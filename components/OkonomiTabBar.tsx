@@ -5,7 +5,7 @@ import Link from "next/link";
 const TABS = [
   { key: "budsjett",     label: "Budsjett",   icon: "💰", href: "/okonomi" },
   { key: "sparing",      label: "Sparing",    icon: "🏦", href: "/okonomi?tab=sparing" },
-  { key: "planlagte",    label: "Planlagte",  icon: "📋", href: "/okonomi?tab=planlagte" },
+  { key: "planlagte",    label: "Fremtidige",  icon: "📋", href: "/okonomi?tab=planlagte" },
   { key: "forsikringer", label: "Forsikring", icon: "🛡️", href: "/okonomi?tab=forsikringer" },
   { key: "lan",          label: "Lån",        icon: "💳", href: "/okonomi?tab=lan" },
   { key: "pensjon",      label: "Pensjon",    icon: "🏖️", href: "/okonomi?tab=pensjon" },
