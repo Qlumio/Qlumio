@@ -260,6 +260,12 @@ export default function BudgetView({
   const bufferStartBalance = bufferAccounts.reduce((s, a) => s + a.balance, 0);
   const bufferMonthly = bufferAccounts.reduce((s, a) => s + a.monthly_amount, 0);
 
+  // Beregn anbefalt månedlig avsetning (basert på fremtidige kostnader neste 12 mnd)
+  const rec = getMonthlyRecommendation();
+  // Tak for månedlig innbetaling: bruk det høyeste av planlagt beløp og anbefalt.
+  // Hvis begge er 0 (ingen fremtidige kostnader / ingen mål satt): sett inn hele overskuddet.
+  const avsetningTak = Math.max(bufferMonthly, rec);
+
   const bufferSaldo: {
     year: number; month: number; balance: number;
     contribution: number; draw: number; costs: number;
@@ -269,12 +275,12 @@ export default function BudgetView({
     for (const col of monthCols) {
       const resultat = getRestMonth(col.year, col.month);
       const costs = getMaintenanceMonthTotal(col.year, col.month) + getPlannedMonthTotal(col.year, col.month);
-      // Overskudd → sett av inntil planlagt månedlig beløp
-      // Underskudd → trekk fra buffer (engangsutgifter er allerede inkl. i resultat)
+      // Positivt resultat → sett av opp til avsetningstaket (eller hele overskuddet)
+      // Negativt resultat → trekk fra buffer
       let contribution = 0;
       let draw = 0;
       if (resultat > 0) {
-        contribution = Math.min(resultat, bufferMonthly);
+        contribution = avsetningTak > 0 ? Math.min(resultat, avsetningTak) : resultat;
         running += contribution;
       } else {
         draw = Math.abs(resultat);
@@ -641,7 +647,6 @@ export default function BudgetView({
 
                 {/* ── Resultatsammendrag ── */}
                 {(() => {
-                  const rec = getMonthlyRecommendation();
                   return (
                     <>
                       <tr><td colSpan={numCols} className="py-1" /></tr>
