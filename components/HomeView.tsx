@@ -10,11 +10,9 @@ import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
 const ALL_MODULES = [
   { href: "/aktiviteter", title: "Kalender", icon: "📅", roles: ["admin", "member"], description: "Kalender og familieaktiviteter" },
   { href: "/oppgaver", title: "Oppgaver", icon: "✅", roles: ["admin", "member"], description: "Gjøremål og praktiske oppgaver" },
-  { href: "/innkjop", title: "Innkjøp", icon: "🛒", roles: ["admin", "member"], description: "Handlelister og innkjøp" },
+  { href: "/innkjop", title: "Innkjøp", icon: "🛒", roles: ["admin", "member"], description: "Handlelister og kortsiktige utgifter" },
   { href: "/eiendeler", title: "Eiendeler", icon: "🔧", roles: ["admin"], description: "Oversikt over eiendeler og utstyr" },
-  { href: "/okonomi", title: "Økonomi", icon: "💰", roles: ["admin"], description: "Inntekter, utgifter og budsjett" },
-  { href: "/planlagte-kostnader", title: "Planlagte kostnader", icon: "📋", roles: ["admin"], description: "Fremtidige og planlagte utgifter" },
-  { href: "/lan-forsikring-pensjon", title: "Lån & forsikring", icon: "🛡️", roles: ["admin"], description: "Lån, forsikringer og pensjon" },
+  { href: "/okonomi", title: "Økonomi", icon: "💰", roles: ["admin"], description: "Budsjett, sparing, lån og forsikring" },
   { href: "/innstillinger", title: "Innstillinger", icon: "⚙️", roles: ["admin"], description: "" },
 ];
 
