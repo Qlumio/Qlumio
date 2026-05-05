@@ -19,10 +19,11 @@ export default async function AssetPage({
 
   if (!asset) notFound();
 
-  const [{ data: tasks }, { data: members }, { data: loans }] = await Promise.all([
+  const [{ data: tasks }, { data: members }, { data: loans }, { data: unlinkedLoans }] = await Promise.all([
     supabase.from("asset_tasks").select("*").eq("asset_id", id).order("due_date"),
     supabase.from("family_members").select("*").order("created_at"),
     supabase.from("loans").select("*").eq("asset_id", id).order("created_at"),
+    supabase.from("loans").select("*").is("asset_id", null).order("created_at"),
   ]);
 
   return (
@@ -31,6 +32,7 @@ export default async function AssetPage({
       tasks={(tasks ?? []) as AssetTask[]}
       members={(members ?? []) as FamilyMember[]}
       loans={(loans ?? []) as Loan[]}
+      unlinkedLoans={(unlinkedLoans ?? []) as Loan[]}
     />
   );
 }

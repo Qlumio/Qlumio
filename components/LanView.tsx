@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
+import type { Asset } from "@/lib/types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,7 @@ export type Loan = {
 
 type Props = {
   loans: Loan[];
+  assets?: Asset[];
   embedded?: boolean;
 };
 
@@ -77,6 +79,7 @@ const emptyForm = {
   installment_fee: "0",
   end_date: "",
   notes: "",
+  asset_id: "",
 };
 
 type LoanForm = typeof emptyForm;
@@ -93,6 +96,7 @@ const loanToForm = (l: Loan): LoanForm => ({
   installment_fee: l.installment_fee != null ? String(l.installment_fee) : "0",
   end_date: l.end_date ?? "",
   notes: l.notes ?? "",
+  asset_id: l.asset_id ?? "",
 });
 
 // ─── Sub-komponent: Kalkulering ───────────────────────────────────────────────
@@ -174,7 +178,7 @@ const Tag = ({ children }: { children: React.ReactNode }) => (
 
 // ─── Lånekort ─────────────────────────────────────────────────────────────────
 
-function LoanCard({ loan, onEdit, onDelete }: { loan: Loan; onEdit: () => void; onDelete: () => void }) {
+function LoanCard({ loan, assetName, onEdit, onDelete }: { loan: Loan; assetName?: string; onEdit: () => void; onDelete: () => void }) {
   const [expanded, setExpanded] = useState(false);
 
   const terminbelop = useMemo(() => {
@@ -207,8 +211,8 @@ function LoanCard({ loan, onEdit, onDelete }: { loan: Loan; onEdit: () => void; 
               {loan.budget_item_id && (
                 <span className="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">✓ budsjett</span>
               )}
-              {loan.asset_id && (
-                <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">🏠 eiendel</span>
+              {assetName && (
+                <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">🏠 {assetName}</span>
               )}
             </div>
             <div className="flex flex-wrap gap-1.5 mb-2">
@@ -311,7 +315,7 @@ function LoanCard({ loan, onEdit, onDelete }: { loan: Loan; onEdit: () => void; 
 
 // ─── Låneskjema ───────────────────────────────────────────────────────────────
 
-function LoanForm({ form, setForm }: { form: LoanForm; setForm: (f: LoanForm) => void }) {
+function LoanForm({ form, setForm, assets }: { form: LoanForm; setForm: (f: LoanForm) => void; assets?: Asset[] }) {
   return (
     <div className="space-y-3 mb-5">
       <Field label="Navn *">
@@ -323,6 +327,21 @@ function LoanForm({ form, setForm }: { form: LoanForm; setForm: (f: LoanForm) =>
       <Field label="Leverandør *">
         <Input value={form.provider} onChange={(v) => setForm({ ...form, provider: v })} placeholder='F.eks. "DNB"' />
       </Field>
+
+      {assets && assets.length > 0 && (
+        <Field label="Knyttet til eiendel (valgfritt)">
+          <select
+            value={form.asset_id}
+            onChange={(e) => setForm({ ...form, asset_id: e.target.value })}
+            className="w-full p-2.5 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          >
+            <option value="">Ingen eiendel</option>
+            {assets.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        </Field>
+      )}
 
       <div className="border-t border-gray-100 pt-3">
         <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Lånedetaljer</div>
@@ -365,7 +384,7 @@ function LoanForm({ form, setForm }: { form: LoanForm; setForm: (f: LoanForm) =>
 
 // ─── Hovedkomponent ───────────────────────────────────────────────────────────
 
-export default function LanView({ loans: initLoans, embedded = false }: Props) {
+export default function LanView({ loans: initLoans, assets = [], embedded = false }: Props) {
   const [loans, setLoans] = useState<Loan[]>(initLoans);
   const [showAdd, setShowAdd] = useState(false);
   const [editingLoan, setEditingLoan] = useState<Loan | null>(null);
@@ -428,6 +447,7 @@ export default function LanView({ loans: initLoans, embedded = false }: Props) {
       monthly_payment: terminbelop || null,
       end_date: form.end_date || null,
       notes: form.notes.trim() || null,
+      asset_id: form.asset_id || null,
     }).select().single();
 
     if (data) {
@@ -459,6 +479,7 @@ export default function LanView({ loans: initLoans, embedded = false }: Props) {
       monthly_payment: terminbelop || null,
       end_date: editForm.end_date || null,
       notes: editForm.notes.trim() || null,
+      asset_id: editForm.asset_id || null,
     }).eq("id", editingLoan.id).select().single();
 
     if (data) {
@@ -508,6 +529,7 @@ export default function LanView({ loans: initLoans, embedded = false }: Props) {
             <LoanCard
               key={l.id}
               loan={l}
+              assetName={assets.find((a) => a.id === l.asset_id)?.name}
               onEdit={() => { setEditingLoan(l); setEditForm(loanToForm(l)); }}
               onDelete={() => deleteLoan(l)}
             />
@@ -525,7 +547,7 @@ export default function LanView({ loans: initLoans, embedded = false }: Props) {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowAdd(false)}>
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-semibold mb-4">Nytt lån</h2>
-            <LoanForm form={form} setForm={setForm} />
+            <LoanForm form={form} setForm={setForm} assets={assets} />
             <div className="flex gap-2">
               <button onClick={() => setShowAdd(false)} className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-sm">Avbryt</button>
               <button onClick={saveLoan} disabled={saving || !form.name.trim() || !form.provider.trim()}
@@ -542,7 +564,7 @@ export default function LanView({ loans: initLoans, embedded = false }: Props) {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setEditingLoan(null)}>
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-semibold mb-4">Rediger lån</h2>
-            <LoanForm form={editForm} setForm={setEditForm} />
+            <LoanForm form={editForm} setForm={setEditForm} assets={assets} />
             {editingLoan.budget_item_id && (
               <p className="text-xs text-green-600 bg-green-50 p-2 rounded-lg mb-3">Endringer synkroniseres automatisk til budsjettet.</p>
             )}

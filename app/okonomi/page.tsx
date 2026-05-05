@@ -41,12 +41,12 @@ export default async function OkonomiPage({
 
   // ── Lån ──────────────────────────────────────────────────────────────────────
   } else if (tab === "lan") {
-    const { data: loans } = await supabase
-      .from("loans")
-      .select("*")
-      .order("created_at");
+    const [{ data: loans }, { data: assets }] = await Promise.all([
+      supabase.from("loans").select("*").order("created_at"),
+      supabase.from("assets").select("*").order("name"),
+    ]);
 
-    content = <LanView loans={loans ?? []} embedded />;
+    content = <LanView loans={loans ?? []} assets={assets ?? []} embedded />;
 
   // ── Pensjon ───────────────────────────────────────────────────────────────────
   } else if (tab === "pensjon") {

@@ -12,6 +12,7 @@ type Props = {
   tasks: AssetTask[];
   members: FamilyMember[];
   loans: Loan[];
+  unlinkedLoans: Loan[];
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -119,7 +120,7 @@ function LoanFormFields({ form, setForm }: { form: LoanForm; setForm: (f: LoanFo
 
 // ─── Hovedkomponent ───────────────────────────────────────────────────────────
 
-export default function AssetDetail({ asset, tasks, members, loans: initLoans }: Props) {
+export default function AssetDetail({ asset, tasks, members, loans: initLoans, unlinkedLoans: initUnlinked }: Props) {
   const router = useRouter();
 
   // ── Oppgave-state ─────────────────────────────────────────────────────────────
@@ -148,6 +149,12 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans }:
   const [loanForm, setLoanForm] = useState<LoanForm>({ ...emptyLoanForm });
   const [editLoanForm, setEditLoanForm] = useState<LoanForm>({ ...emptyLoanForm });
   const [loanSaving, setLoanSaving] = useState(false);
+
+  // ── Koble eksisterende lån ────────────────────────────────────────────────────
+  const [availableLoans, setAvailableLoans] = useState<Loan[]>(initUnlinked);
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [selectedLoanId, setSelectedLoanId] = useState("");
+  const [linking, setLinking] = useState(false);
 
   // ── Oppgave-handlers ──────────────────────────────────────────────────────────
 
@@ -303,6 +310,38 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans }:
     setLoans((p) => p.filter((x) => x.id !== l.id));
   };
 
+  const linkLoan = async () => {
+    if (!selectedLoanId) return;
+    setLinking(true);
+    const { data } = await supabase
+      .from("loans")
+      .update({ asset_id: asset.id })
+      .eq("id", selectedLoanId)
+      .select()
+      .single();
+    if (data) {
+      setLoans((p) => [...p, data as Loan]);
+      setAvailableLoans((p) => p.filter((l) => l.id !== selectedLoanId));
+      setSelectedLoanId("");
+      setShowLinkModal(false);
+    }
+    setLinking(false);
+  };
+
+  const unlinkLoan = async (l: Loan) => {
+    if (!confirm(`Fjern koblingen mellom "${l.name}" og denne eiendelen? Lånet beholdes i økonomimodulen.`)) return;
+    const { data } = await supabase
+      .from("loans")
+      .update({ asset_id: null })
+      .eq("id", l.id)
+      .select()
+      .single();
+    if (data) {
+      setLoans((p) => p.filter((x) => x.id !== l.id));
+      setAvailableLoans((p) => [...p, { ...data as Loan, asset_id: null }]);
+    }
+  };
+
   const getMemberName = (id: string | null) => members.find((m) => m.id === id)?.name ?? null;
   const getMemberColor = (id: string | null) => members.find((m) => m.id === id)?.color ?? null;
 
@@ -358,17 +397,31 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans }:
         <div className="mb-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Lån</h2>
-            <button onClick={() => setShowLoanModal(true)} className="text-xs text-blue-500 hover:text-blue-600 transition-colors">
-              + Legg til lån
-            </button>
+            <div className="flex items-center gap-3">
+              {availableLoans.length > 0 && (
+                <button onClick={() => setShowLinkModal(true)} className="text-xs text-gray-500 hover:text-gray-700 transition-colors">
+                  Koble eksisterende
+                </button>
+              )}
+              <button onClick={() => setShowLoanModal(true)} className="text-xs text-blue-500 hover:text-blue-600 transition-colors">
+                + Nytt lån
+              </button>
+            </div>
           </div>
 
           {loans.length === 0 ? (
             <div className="bg-white rounded-xl p-4 text-center">
               <p className="text-gray-400 text-sm">Ingen lån knyttet til denne eiendelen.</p>
-              <button onClick={() => setShowLoanModal(true)} className="text-blue-500 hover:text-blue-600 text-xs mt-1 transition-colors">
-                + Knytt til et lån
-              </button>
+              <div className="flex items-center justify-center gap-3 mt-2">
+                {availableLoans.length > 0 && (
+                  <button onClick={() => setShowLinkModal(true)} className="text-gray-500 hover:text-gray-700 text-xs transition-colors">
+                    Koble eksisterende lån
+                  </button>
+                )}
+                <button onClick={() => setShowLoanModal(true)} className="text-blue-500 hover:text-blue-600 text-xs transition-colors">
+                  + Opprett nytt lån
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-2">
@@ -406,6 +459,11 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans }:
                         <button onClick={() => { setEditingLoan(l); setEditLoanForm(loanToForm(l)); }} className="text-gray-400 hover:text-blue-500 transition-colors">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button onClick={() => unlinkLoan(l)} title="Fjern kobling" className="text-gray-400 hover:text-orange-500 transition-colors">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                           </svg>
                         </button>
                         <button onClick={() => deleteLoan(l)} className="text-gray-400 hover:text-red-500 transition-colors">
@@ -550,6 +608,38 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans }:
               <button onClick={handleSaveEdit} disabled={!editName.trim() || editSaving}
                 className="flex-1 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-40 transition-colors text-sm font-medium text-white">
                 {editSaving ? "Lagrer…" : "Lagre"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Koble eksisterende lån ── */}
+      {showLinkModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowLinkModal(false)}>
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold mb-1">Koble eksisterende lån</h2>
+            <p className="text-xs text-gray-400 mb-4">Velg et lån som ikke er koblet til en eiendel ennå.</p>
+            <div className="mb-5">
+              <label className="text-xs text-gray-400 mb-1 block">Lån</label>
+              <select
+                value={selectedLoanId}
+                onChange={(e) => setSelectedLoanId(e.target.value)}
+                className="w-full p-2.5 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              >
+                <option value="">Velg lån…</option>
+                {availableLoans.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name} – {l.provider} {l.remaining_debt != null ? `(${l.remaining_debt.toLocaleString("nb-NO")} kr)` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => { setShowLinkModal(false); setSelectedLoanId(""); }} className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-sm">Avbryt</button>
+              <button onClick={linkLoan} disabled={!selectedLoanId || linking}
+                className="flex-1 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-40 transition-colors text-sm font-medium text-white">
+                {linking ? "Kobler…" : "Koble til eiendel"}
               </button>
             </div>
           </div>
