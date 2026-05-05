@@ -76,13 +76,14 @@ export default async function OkonomiPage({
 
   // ── Innsikt ───────────────────────────────────────────────────────────────────
   } else if (tab === "innsikt") {
-    const [{ data: loansRaw }, { data: savingsCat }] = await Promise.all([
+    const [{ data: loansRaw }, { data: savingsCat }, { data: assetsRaw }] = await Promise.all([
       supabase.from("loans").select("*").order("created_at"),
       supabase
         .from("budget_categories")
         .select("id, budget_items(id, name, starting_balance, monthly_default)")
         .eq("type", "savings")
         .maybeSingle(),
+      supabase.from("assets").select("id, name, type, estimated_value").order("name"),
     ]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -97,6 +98,7 @@ export default async function OkonomiPage({
       <InnsiktView
         loans={(loansRaw ?? []) as InnsiktLoan[]}
         savingsItems={savingsItems}
+        assets={(assetsRaw ?? []) as { id: string; name: string; type: string; estimated_value: number | null }[]}
         embedded
       />
     );

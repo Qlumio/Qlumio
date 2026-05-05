@@ -140,6 +140,7 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans, u
   const [editType, setEditType] = useState(asset.type);
   const [editYear, setEditYear] = useState(asset.purchase_year?.toString() ?? "");
   const [editDesc, setEditDesc] = useState(asset.description ?? "");
+  const [editValue, setEditValue] = useState(asset.estimated_value?.toString() ?? "");
   const [editSaving, setEditSaving] = useState(false);
 
   // ── Lån-state ──────────────────────────────────────────────────────────────────
@@ -207,6 +208,7 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans, u
       name: editName.trim(), type: editType,
       purchase_year: editYear ? parseInt(editYear) : null,
       description: editDesc.trim() || null,
+      estimated_value: editValue ? parseInt(editValue) : null,
     }).eq("id", asset.id);
     setEditSaving(false);
     if (error) { alert("Feil: " + error.message); return; }
@@ -381,9 +383,14 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans, u
               {asset.purchase_year && <span className="ml-2">· {asset.purchase_year}</span>}
             </div>
             {asset.description && <div className="text-xs text-gray-400 mt-0.5">{asset.description}</div>}
+            {asset.estimated_value != null && (
+              <div className="text-xs text-emerald-600 mt-1 font-medium">
+                💰 Estimert verdi: {asset.estimated_value.toLocaleString("nb-NO")} kr
+              </div>
+            )}
           </div>
           <div className="flex flex-col gap-1.5 flex-shrink-0">
-            <button onClick={() => { setEditName(asset.name); setEditType(asset.type); setEditYear(asset.purchase_year?.toString() ?? ""); setEditDesc(asset.description ?? ""); setShowEditModal(true); }}
+            <button onClick={() => { setEditName(asset.name); setEditType(asset.type); setEditYear(asset.purchase_year?.toString() ?? ""); setEditDesc(asset.description ?? ""); setEditValue(asset.estimated_value?.toString() ?? ""); setShowEditModal(true); }}
               className="text-xs text-gray-400 hover:text-blue-500 transition-colors px-2 py-1 rounded hover:bg-gray-100">
               ✏️ Rediger
             </button>
@@ -601,6 +608,11 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans, u
                 <label className="text-xs text-gray-400 mb-1 block">Beskrivelse (valgfritt)</label>
                 <input type="text" value={editDesc} onChange={(e) => setEditDesc(e.target.value)}
                   className="w-full p-2.5 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Estimert verdi (kr, valgfritt)</label>
+                <input type="number" placeholder="F.eks. 4 500 000" value={editValue} onChange={(e) => setEditValue(e.target.value)}
+                  className="w-full p-2.5 rounded-lg bg-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
               </div>
             </div>
             <div className="flex gap-2">

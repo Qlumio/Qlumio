@@ -3,6 +3,7 @@ export type Asset = {
   name: string;
   type: string;
   purchase_year: number | null;
+  estimated_value: number | null;
   description: string | null;
   created_at: string;
 };

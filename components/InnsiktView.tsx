@@ -24,9 +24,17 @@ export type InnsiktSavingsItem = {
   monthly_default: number;
 };
 
+export type InnsiktAsset = {
+  id: string;
+  name: string;
+  type: string;
+  estimated_value: number | null;
+};
+
 type Props = {
   loans: InnsiktLoan[];
   savingsItems: InnsiktSavingsItem[];
+  assets?: InnsiktAsset[];
   embedded?: boolean;
 };
 
@@ -352,39 +360,61 @@ function SavingsCard({ item }: { item: InnsiktSavingsItem }) {
 
 // ─── Hovedkomponent ───────────────────────────────────────────────────────────
 
-export default function InnsiktView({ loans, savingsItems, embedded = false }: Props) {
+const ASSET_EMOJIS: Record<string, string> = {
+  hus: "🏠", bil: "🚗", hytte: "🏡", bat: "⛵", motorsykkel: "🏍️",
+  elsykkel: "🚲", varmepumpe: "♨️", robotklipper: "🤖", hvitevarer: "🧺", annet: "📦",
+};
+
+export default function InnsiktView({ loans, savingsItems, assets = [], embedded = false }: Props) {
   const loansWithData = loans.filter(
     (l) => l.remaining_debt != null && l.interest_rate != null && l.monthly_payment != null
   );
   const totalDebt = loans.reduce((s, l) => s + (l.remaining_debt ?? 0), 0);
   const totalSavings = savingsItems.reduce((s, i) => s + i.starting_balance, 0);
-  const netWorth = totalSavings - totalDebt;
+  const totalAssetValue = assets.reduce((s, a) => s + (a.estimated_value ?? 0), 0);
+  const assetsWithValue = assets.filter((a) => a.estimated_value != null);
+  const netWorth = totalSavings + totalAssetValue - totalDebt;
+
+  const hasAnything = totalDebt > 0 || totalSavings > 0 || totalAssetValue > 0;
 
   return (
     <main className={embedded ? "text-gray-900 pb-10" : "min-h-screen bg-gray-50 text-gray-900 pb-10"}>
       <div className="max-w-2xl mx-auto px-4 pt-5">
 
         {/* ── Sammendrag øverst ── */}
-        {(totalDebt > 0 || totalSavings > 0) && (
-          <div className="grid grid-cols-3 gap-3 mb-6">
-            <div className="bg-white rounded-xl p-4 text-center">
-              <div className="text-xs text-gray-400 mb-1">Total gjeld</div>
-              <div className="text-base font-bold text-red-500">
-                {(totalDebt / 1_000_000).toFixed(2).replace(".", ",")}M
+        {hasAnything && (
+          <div className="mb-6">
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="bg-white rounded-xl p-4 text-center">
+                <div className="text-xs text-gray-400 mb-1">Total gjeld</div>
+                <div className="text-base font-bold text-red-500">
+                  {totalDebt === 0 ? "–" : (totalDebt / 1_000_000).toFixed(2).replace(".", ",") + "M"}
+                </div>
+              </div>
+              <div className="bg-white rounded-xl p-4 text-center">
+                <div className="text-xs text-gray-400 mb-1">Eiendeler (est.)</div>
+                <div className="text-base font-bold text-blue-600">
+                  {totalAssetValue === 0 ? "–" : (totalAssetValue / 1_000_000).toFixed(2).replace(".", ",") + "M"}
+                </div>
+              </div>
+              <div className="bg-white rounded-xl p-4 text-center">
+                <div className="text-xs text-gray-400 mb-1">Total sparing</div>
+                <div className="text-base font-bold text-green-600">
+                  {totalSavings === 0 ? "–" : (totalSavings / 1000).toFixed(0) + "k"}
+                </div>
+              </div>
+              <div className={`rounded-xl p-4 text-center ${netWorth >= 0 ? "bg-emerald-50" : "bg-red-50"}`}>
+                <div className="text-xs text-gray-400 mb-1">Netto formue</div>
+                <div className={`text-base font-bold ${netWorth >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+                  {netWorth >= 0 ? "+" : ""}{(netWorth / 1_000_000).toFixed(2).replace(".", ",")}M
+                </div>
               </div>
             </div>
-            <div className="bg-white rounded-xl p-4 text-center">
-              <div className="text-xs text-gray-400 mb-1">Total sparing</div>
-              <div className="text-base font-bold text-green-600">
-                {totalSavings === 0 ? "–" : (totalSavings / 1000).toFixed(0) + "k"}
+            {totalAssetValue > 0 && totalDebt > 0 && (
+              <div className="bg-white rounded-xl px-4 py-3 text-xs text-gray-400 text-center">
+                Netto formue = eiendeler ({(totalAssetValue / 1_000_000).toFixed(2).replace(".", ",")}M) + sparing ({(totalSavings / 1000).toFixed(0)}k) − gjeld ({(totalDebt / 1_000_000).toFixed(2).replace(".", ",")}M)
               </div>
-            </div>
-            <div className={`rounded-xl p-4 text-center ${netWorth >= 0 ? "bg-emerald-50" : "bg-red-50"}`}>
-              <div className="text-xs text-gray-400 mb-1">Netto formue</div>
-              <div className={`text-base font-bold ${netWorth >= 0 ? "text-emerald-700" : "text-red-600"}`}>
-                {netWorth >= 0 ? "+" : ""}{(netWorth / 1_000_000).toFixed(2).replace(".", ",")}M
-              </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -410,6 +440,42 @@ export default function InnsiktView({ loans, savingsItems, embedded = false }: P
             <p className="text-gray-400 text-sm">Ingen lån registrert ennå.</p>
             <p className="text-xs text-gray-300 mt-1">Legg til lån i Lån & forsikring-fanen.</p>
           </div>
+        )}
+
+        {/* ── Eiendeler ── */}
+        {assets.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+              🏠 Eiendeler ({assets.length})
+            </h2>
+            {assetsWithValue.length < assets.length && (
+              <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg mb-3">
+                {assets.length - assetsWithValue.length} eiendel(er) mangler estimert verdi – legg det inn under Eiendeler.
+              </p>
+            )}
+            <div className="space-y-2">
+              {assets.map((a) => (
+                <div key={a.id} className="bg-white rounded-xl p-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{ASSET_EMOJIS[a.type] ?? "📦"}</span>
+                    <div>
+                      <div className="font-medium text-gray-900">{a.name}</div>
+                      {a.estimated_value == null && (
+                        <div className="text-xs text-gray-400">Ingen verdi angitt</div>
+                      )}
+                    </div>
+                  </div>
+                  {a.estimated_value != null && (
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-blue-600">
+                        {a.estimated_value.toLocaleString("nb-NO")} kr
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
         )}
 
         {/* ── Sparing ── */}
