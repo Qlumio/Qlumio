@@ -5,7 +5,7 @@ import PlannedExpensesView from "@/components/PlannedExpensesView";
 import LFPView from "@/components/LFPView";
 import LanView from "@/components/LanView";
 import InnsiktView, { type InnsiktLoan } from "@/components/InnsiktView";
-import SparingView from "@/components/SparingView";
+import SparingView, { type UpcomingCost } from "@/components/SparingView";
 import OkonomiTabBar from "@/components/OkonomiTabBar";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -25,12 +25,37 @@ export default async function OkonomiPage({
 
   // ── Sparing ───────────────────────────────────────────────────────────────────
   if (tab === "sparing") {
-    const { data: accounts } = await supabase
-      .from("savings_accounts")
-      .select("*")
-      .order("created_at");
+    const [{ data: accounts }, { data: tasksRaw }, { data: expensesRaw }] = await Promise.all([
+      supabase.from("savings_accounts").select("*").order("created_at"),
+      supabase
+        .from("asset_tasks")
+        .select("id, title, due_date, estimated_cost, assets(name)")
+        .not("estimated_cost", "is", null)
+        .gt("estimated_cost", 0)
+        .order("due_date"),
+      supabase.from("planned_expenses").select("*").order("date"),
+    ]);
 
-    content = <SparingView accounts={accounts ?? []} embedded />;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const upcomingCosts: UpcomingCost[] = [
+      ...(tasksRaw ?? []).map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        amount: t.estimated_cost as number,
+        date: t.due_date,
+        source: "vedlikehold" as const,
+        detail: (t.assets as { name: string } | null)?.name,
+      })),
+      ...(expensesRaw ?? []).map((e: any) => ({
+        id: e.id,
+        title: e.title,
+        amount: e.amount as number,
+        date: e.date,
+        source: "planlagt" as const,
+      })),
+    ];
+
+    content = <SparingView accounts={accounts ?? []} upcomingCosts={upcomingCosts} embedded />;
 
   // ── Forsikringer ─────────────────────────────────────────────────────────────
   } else if (tab === "forsikringer") {

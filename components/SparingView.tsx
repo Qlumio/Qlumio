@@ -10,13 +10,24 @@ export type SavingsAccount = {
   name: string;
   balance: number;
   monthly_amount: number;
+  is_buffer: boolean;
   budget_item_id: string | null;
   notes: string | null;
   created_at: string;
 };
 
+export type UpcomingCost = {
+  id: string;
+  title: string;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  source: "vedlikehold" | "planlagt";
+  detail?: string; // f.eks. eiendelsnavnet
+};
+
 type Props = {
   accounts: SavingsAccount[];
+  upcomingCosts?: UpcomingCost[];
   embedded?: boolean;
 };
 
@@ -43,6 +54,157 @@ const accountToForm = (a: SavingsAccount): AccountForm => ({
   monthly_amount: a.monthly_amount ? String(a.monthly_amount) : "",
   notes: a.notes ?? "",
 });
+
+// ─── Avsetningsoversikt ───────────────────────────────────────────────────────
+
+function AvsetningSection({
+  bufferAccounts,
+  upcomingCosts,
+}: {
+  bufferAccounts: SavingsAccount[];
+  upcomingCosts: UpcomingCost[];
+}) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const horizon = new Date(today.getFullYear(), today.getMonth() + 12, 1);
+
+  // Kostnader innen 12 måneder, sortert på dato
+  const futureCosts = upcomingCosts
+    .filter((c) => {
+      const d = new Date(c.date + "T00:00:00");
+      return d >= today && d < horizon;
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const totalBufferBalance = bufferAccounts.reduce((s, a) => s + a.balance, 0);
+  const totalMonthly = bufferAccounts.reduce((s, a) => s + a.monthly_amount, 0);
+  const totalCosts = futureCosts.reduce((s, c) => s + c.amount, 0);
+  const projectedBalance = totalBufferBalance + 12 * totalMonthly - totalCosts;
+
+  // Beregn løpende saldo måned for måned
+  type BalanceRow = {
+    cost: UpcomingCost;
+    balanceBefore: number;
+    balanceAfter: number;
+    monthsFromNow: number;
+  };
+
+  const rows: BalanceRow[] = [];
+  let runningBalance = totalBufferBalance;
+
+  for (const cost of futureCosts) {
+    const d = new Date(cost.date + "T00:00:00");
+    const monthsFromNow =
+      (d.getFullYear() - today.getFullYear()) * 12 +
+      (d.getMonth() - today.getMonth());
+    // Legg til månedlig tilskudd frem til denne kostnaden
+    runningBalance += monthsFromNow > 0 ? totalMonthly * monthsFromNow : 0;
+    const balanceBefore = runningBalance;
+    runningBalance -= cost.amount;
+    rows.push({ cost, balanceBefore, balanceAfter: runningBalance, monthsFromNow });
+  }
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("nb-NO", { month: "short", year: d.getFullYear() !== today.getFullYear() ? "numeric" : undefined });
+  };
+
+  const statusColor = (bal: number) => {
+    if (bal < 0) return { dot: "bg-red-400", text: "text-red-600", bg: "bg-red-50" };
+    if (bal < totalBufferBalance * 0.2) return { dot: "bg-amber-400", text: "text-amber-700", bg: "bg-amber-50" };
+    return { dot: "bg-emerald-400", text: "text-emerald-700", bg: "bg-emerald-50" };
+  };
+
+  if (bufferAccounts.length === 0) {
+    return (
+      <div className="bg-white rounded-xl p-5 text-center">
+        <p className="text-sm text-gray-400">Merk en sparekonto som avsetningskonto for å se oversikten.</p>
+        <p className="text-xs text-gray-300 mt-1">Bruk «Avsetningskonto»-bryteren på kontoen.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="p-4 border-b border-gray-100">
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-slate-50 rounded-lg p-3 text-center">
+            <div className="text-xs text-gray-400 mb-0.5">Tilgjengelig nå</div>
+            <div className="text-sm font-bold text-gray-900">{totalBufferBalance.toLocaleString("nb-NO")} kr</div>
+          </div>
+          <div className="bg-slate-50 rounded-lg p-3 text-center">
+            <div className="text-xs text-gray-400 mb-0.5">Planlagte kostnader</div>
+            <div className="text-sm font-bold text-red-500">−{totalCosts.toLocaleString("nb-NO")} kr</div>
+          </div>
+          <div className={`rounded-lg p-3 text-center ${projectedBalance >= 0 ? "bg-emerald-50" : "bg-red-50"}`}>
+            <div className="text-xs text-gray-400 mb-0.5">Forventet om 12 mnd</div>
+            <div className={`text-sm font-bold ${projectedBalance >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+              {projectedBalance >= 0 ? "+" : ""}{projectedBalance.toLocaleString("nb-NO")} kr
+            </div>
+          </div>
+        </div>
+        {totalMonthly > 0 && (
+          <p className="text-xs text-gray-400 mt-2 text-center">
+            Inkluderer månedlig tilskudd på +{totalMonthly.toLocaleString("nb-NO")} kr fra {bufferAccounts.map((a) => a.name).join(", ")}
+          </p>
+        )}
+      </div>
+
+      {/* Kommende kostnader */}
+      {futureCosts.length === 0 ? (
+        <div className="p-4 text-center text-sm text-gray-400">
+          Ingen planlagte kostnader de neste 12 månedene. God dekning! ✅
+        </div>
+      ) : (
+        <div>
+          <div className="px-4 pt-3 pb-1">
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+              Kommende kostnader ({futureCosts.length})
+            </div>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {rows.map(({ cost, balanceAfter }) => {
+              const colors = statusColor(balanceAfter);
+              return (
+                <div key={cost.id} className={`px-4 py-3 flex items-center gap-3 ${colors.bg}/30`}>
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${colors.dot}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-400">{formatDate(cost.date)}</span>
+                      <span className="text-xs text-gray-300">·</span>
+                      <span className="text-xs text-gray-500">
+                        {cost.source === "vedlikehold" ? "🔧" : "📅"} {cost.detail ?? cost.source}
+                      </span>
+                    </div>
+                    <div className="text-sm font-medium text-gray-800 truncate">{cost.title}</div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-sm font-semibold text-red-500">−{cost.amount.toLocaleString("nb-NO")} kr</div>
+                    <div className={`text-xs font-medium ${colors.text}`}>
+                      {balanceAfter >= 0 ? "" : ""}
+                      {balanceAfter.toLocaleString("nb-NO")} kr igjen
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {rows.some(({ balanceAfter }) => balanceAfter < 0) && (
+            <div className="px-4 py-3 bg-red-50 border-t border-red-100">
+              <p className="text-xs text-red-600">
+                ⚠️ Avsetningskontoen vil gå i minus. Vurder å øke månedlig sparing eller justere planlagte kostnader.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Skjema ───────────────────────────────────────────────────────────────────
 
 function AccountFormFields({ form, setForm }: { form: AccountForm; setForm: (f: AccountForm) => void }) {
   return (
@@ -100,10 +262,12 @@ function AccountCard({
   account,
   onEdit,
   onDelete,
+  onToggleBuffer,
 }: {
   account: SavingsAccount;
   onEdit: () => void;
   onDelete: () => void;
+  onToggleBuffer: () => void;
 }) {
   const [showProj, setShowProj] = useState(false);
   const now = new Date();
@@ -127,13 +291,23 @@ function AccountCard({
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
               <span className="font-semibold text-gray-900">{account.name}</span>
               {account.budget_item_id && (
                 <span className="text-xs text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
                   ✓ budsjett
                 </span>
               )}
+              <button
+                onClick={onToggleBuffer}
+                className={`text-xs px-1.5 py-0.5 rounded-full transition-colors ${
+                  account.is_buffer
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-gray-100 text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                {account.is_buffer ? "🏦 Avsetningskonto" : "Sett som avsetning"}
+              </button>
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div className="bg-slate-50 rounded-lg p-2.5 text-center">
@@ -222,7 +396,7 @@ function AccountCard({
 
 // ─── Hovedkomponent ───────────────────────────────────────────────────────────
 
-export default function SparingView({ accounts: initAccounts, embedded = false }: Props) {
+export default function SparingView({ accounts: initAccounts, upcomingCosts = [], embedded = false }: Props) {
   const [accounts, setAccounts] = useState<SavingsAccount[]>(initAccounts);
   const [showAdd, setShowAdd] = useState(false);
   const [editingAccount, setEditingAccount] = useState<SavingsAccount | null>(null);
@@ -329,6 +503,12 @@ export default function SparingView({ accounts: initAccounts, embedded = false }
     setSaving(false);
   };
 
+  const toggleBuffer = async (a: SavingsAccount) => {
+    const newVal = !a.is_buffer;
+    await supabase.from("savings_accounts").update({ is_buffer: newVal }).eq("id", a.id);
+    setAccounts((p) => p.map((x) => (x.id === a.id ? { ...x, is_buffer: newVal } : x)));
+  };
+
   const deleteAccount = async (a: SavingsAccount) => {
     if (!confirm(`Slett "${a.name}"? Tilknyttet budsjettpost slettes også.`)) return;
     if (a.budget_item_id)
@@ -378,9 +558,26 @@ export default function SparingView({ accounts: initAccounts, embedded = false }
               account={a}
               onEdit={() => { setEditingAccount(a); setEditForm(accountToForm(a)); }}
               onDelete={() => deleteAccount(a)}
+              onToggleBuffer={() => toggleBuffer(a)}
             />
           ))}
         </div>
+
+        {/* ── Avsetningsoversikt ── */}
+        {accounts.length > 0 && (
+          <div className="mt-8">
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+                🏦 Avsetningsoversikt
+              </h2>
+              <span className="text-xs text-gray-300">· neste 12 måneder</span>
+            </div>
+            <AvsetningSection
+              bufferAccounts={accounts.filter((a) => a.is_buffer)}
+              upcomingCosts={upcomingCosts}
+            />
+          </div>
+        )}
       </div>
 
       {/* Modal: Ny konto */}
