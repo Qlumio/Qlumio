@@ -130,7 +130,7 @@ export default async function OkonomiPage({
   } else {
     const currentYear = new Date().getFullYear();
 
-    const [categoriesResult, overridesResult, tasksResult, plannedResult] = await Promise.all([
+    const [categoriesResult, overridesResult, tasksResult, plannedResult, bufferResult] = await Promise.all([
       supabase.from("budget_categories").select("*, budget_items(*)").order("sort_order"),
       supabase.from("budget_overrides").select("*").in("year", [currentYear, currentYear + 1]),
       supabase
@@ -139,6 +139,7 @@ export default async function OkonomiPage({
         .not("estimated_cost", "is", null)
         .gt("estimated_cost", 0),
       supabase.from("planned_expenses").select("*").order("date"),
+      supabase.from("savings_accounts").select("name, balance, monthly_amount").eq("is_buffer", true),
     ]);
 
     const categories = (categoriesResult.data ?? []).map((cat) => ({
@@ -165,6 +166,7 @@ export default async function OkonomiPage({
         overrides={overridesResult.data ?? []}
         maintenanceTasks={maintenanceTasks}
         plannedExpenses={plannedResult.data ?? []}
+        bufferAccounts={bufferResult.data ?? []}
         embedded
       />
     );

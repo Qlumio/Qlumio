@@ -53,11 +53,18 @@ const CAT_EMOJI: Record<string, string> = {
 
 type MonthCol = { year: number; month: number; label: string; isCurrent: boolean; isPast: boolean };
 
+type BufferAccount = {
+  name: string;
+  balance: number;
+  monthly_amount: number;
+};
+
 type Props = {
   categories: Category[];
   overrides: Override[];
   maintenanceTasks: MaintenanceTask[];
   plannedExpenses: PlannedExpense[];
+  bufferAccounts?: BufferAccount[];
   embedded?: boolean;
 };
 
@@ -83,7 +90,7 @@ function fmt(n: number): string {
 
 export default function BudgetView({
   categories: initialCategories, overrides: initialOverrides,
-  maintenanceTasks, plannedExpenses, embedded = false,
+  maintenanceTasks, plannedExpenses, bufferAccounts = [], embedded = false,
 }: Props) {
   const router = useRouter();
   const currentYear = new Date().getFullYear();
@@ -113,6 +120,7 @@ export default function BudgetView({
   });
 
   const [showOneTimeDetails, setShowOneTimeDetails] = useState(false);
+  const [showBufferDetails, setShowBufferDetails] = useState(false);
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
 
   const toggleCat = (id: string) =>
@@ -277,6 +285,33 @@ export default function BudgetView({
     const futureMaint = maintenanceTasks.filter((t) => { const d = new Date(t.due_date + "T00:00:00"); return d >= today && d < horizon; }).reduce((s, t) => s + t.estimated_cost, 0);
     const futurePlan = plannedExpenses.filter((e) => { const d = new Date(e.date + "T00:00:00"); return d >= today && d < horizon; }).reduce((s, e) => s + e.amount, 0);
     return Math.ceil((futureMaint + futurePlan) / 12);
+  };
+
+  // ── Buffer-simulering ────────────────────────────────────────────────────────
+
+  const bufferStartBalance = bufferAccounts.reduce((s, a) => s + a.balance, 0);
+  const bufferMonthly = bufferAccounts.reduce((s, a) => s + a.monthly_amount, 0);
+
+  const bufferSaldo: { year: number; month: number; balance: number; contribution: number; costs: number }[] = [];
+  if (bufferAccounts.length > 0) {
+    let running = bufferStartBalance;
+    for (const col of monthCols) {
+      const costs = getMaintenanceMonthTotal(col.year, col.month) + getPlannedMonthTotal(col.year, col.month);
+      running = running + bufferMonthly - costs;
+      bufferSaldo.push({ year: col.year, month: col.month, balance: running, contribution: bufferMonthly, costs });
+    }
+  }
+
+  const bufferBalanceColor = (bal: number) => {
+    if (bal < 0) return "text-red-600 font-bold";
+    if (bal < bufferStartBalance * 0.2) return "text-amber-600 font-semibold";
+    return "text-emerald-700 font-semibold";
+  };
+
+  const bufferBgColor = (bal: number, isCurrent: boolean) => {
+    if (bal < 0) return isCurrent ? "bg-red-100" : "bg-red-50/60";
+    if (bal < bufferStartBalance * 0.2) return isCurrent ? "bg-amber-100" : "bg-amber-50/60";
+    return isCurrent ? "bg-emerald-100/60" : "";
   };
 
   // ── Slett ────────────────────────────────────────────────────────────────────
@@ -676,6 +711,66 @@ export default function BudgetView({
                   })}
                   <td className={`text-right px-2 py-3 text-sm font-bold ${getRestAnnual() >= 0 ? "text-green-600" : "text-red-500"}`}>{fmt(getRestAnnual())}</td>
                 </tr>
+
+                {/* ── Avsetningssaldo ── */}
+                {bufferAccounts.length > 0 && (
+                  <>
+                    <tr><td colSpan={numCols} className="py-1" /></tr>
+                    <tr
+                      className="border-t border-blue-200/60 bg-blue-50/40 cursor-pointer hover:bg-blue-50/70 transition-colors"
+                      onClick={() => setShowBufferDetails((v) => !v)}
+                    >
+                      <td className="sticky left-0 bg-blue-50/40 px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-gray-400 text-xs transition-transform ${showBufferDetails ? "rotate-90" : ""}`}>▶</span>
+                          <span className="text-sm font-bold text-gray-800">💰 Avsetningssaldo</span>
+                          <span className="text-xs text-gray-400 font-normal">
+                            {bufferAccounts.map((a) => a.name).join(", ")}
+                          </span>
+                        </div>
+                      </td>
+                      {bufferSaldo.map((s) => (
+                        <td
+                          key={`buf-${s.year}-${s.month}`}
+                          className={`text-right px-2 py-2.5 text-sm ${bufferBalanceColor(s.balance)} ${bufferBgColor(s.balance, monthCols.find((c) => c.year === s.year && c.month === s.month)?.isCurrent ?? false)}`}
+                        >
+                          {Math.round(s.balance).toLocaleString("nb-NO")}
+                        </td>
+                      ))}
+                      <td className="text-right px-2 py-2.5 text-xs text-gray-400">–</td>
+                    </tr>
+
+                    {showBufferDetails && (
+                      <>
+                        {/* + Avsetning per måned */}
+                        <tr className="bg-blue-50/20">
+                          <td className="sticky left-0 bg-blue-50/20 px-4 py-1.5 pl-10 text-xs text-emerald-700">+ Avsetning</td>
+                          {bufferSaldo.map((s) => (
+                            <td key={`buf-contrib-${s.year}-${s.month}`} className={`text-right px-2 py-1.5 text-xs text-emerald-600 ${monthCols.find((c) => c.year === s.year && c.month === s.month)?.isCurrent ? "bg-blue-100/60" : ""}`}>
+                              {s.contribution > 0 ? `+${s.contribution.toLocaleString("nb-NO")}` : "–"}
+                            </td>
+                          ))}
+                          <td className="text-right px-2 py-1.5 text-xs text-gray-400">{(bufferMonthly * 12).toLocaleString("nb-NO")}</td>
+                        </tr>
+
+                        {/* − Engangsutgifter per måned */}
+                        <tr className="bg-blue-50/20 border-b border-blue-100/60">
+                          <td className="sticky left-0 bg-blue-50/20 px-4 py-1.5 pl-10 text-xs text-red-600">− Engangsutgifter</td>
+                          {bufferSaldo.map((s) => (
+                            <td key={`buf-costs-${s.year}-${s.month}`} className={`text-right px-2 py-1.5 text-xs ${s.costs > 0 ? "text-red-500 font-medium" : "text-gray-300"} ${monthCols.find((c) => c.year === s.year && c.month === s.month)?.isCurrent ? "bg-blue-100/60" : ""}`}>
+                              {s.costs > 0 ? `-${s.costs.toLocaleString("nb-NO")}` : "–"}
+                            </td>
+                          ))}
+                          <td className="text-right px-2 py-1.5 text-xs text-gray-400">
+                            {(getMaintenanceAnnualTotal() + getPlannedAnnualTotal()) > 0
+                              ? `-${(getMaintenanceAnnualTotal() + getPlannedAnnualTotal()).toLocaleString("nb-NO")}`
+                              : "–"}
+                          </td>
+                        </tr>
+                      </>
+                    )}
+                  </>
+                )}
 
                 <tr><td colSpan={numCols} className="py-4" /></tr>
               </tbody>
