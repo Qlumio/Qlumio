@@ -10,6 +10,7 @@ export type SavingsAccount = {
   name: string;
   balance: number;
   monthly_amount: number;
+  target_amount: number | null;
   is_buffer: boolean;
   budget_item_id: string | null;
   notes: string | null;
@@ -45,13 +46,14 @@ const MONTH_NAMES = ["jan","feb","mar","apr","mai","jun","jul","aug","sep","okt"
 
 // ─── Skjema ───────────────────────────────────────────────────────────────────
 
-const emptyForm = { name: "", balance: "", monthly_amount: "", notes: "" };
+const emptyForm = { name: "", balance: "", monthly_amount: "", target_amount: "", notes: "" };
 type AccountForm = typeof emptyForm;
 
 const accountToForm = (a: SavingsAccount): AccountForm => ({
   name: a.name,
   balance: a.balance ? String(a.balance) : "",
   monthly_amount: a.monthly_amount ? String(a.monthly_amount) : "",
+  target_amount: a.target_amount ? String(a.target_amount) : "",
   notes: a.notes ?? "",
 });
 
@@ -243,6 +245,16 @@ function AccountFormFields({ form, setForm }: { form: AccountForm; setForm: (f: 
         </div>
       </div>
       <div>
+        <label className="text-xs text-gray-400 mb-1 block">Målbeløp (valgfritt)</label>
+        <input
+          type="number"
+          value={form.target_amount}
+          onChange={(e) => setForm({ ...form, target_amount: e.target.value })}
+          placeholder="F.eks. 300 000"
+          className="w-full p-2.5 rounded-lg bg-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+        />
+      </div>
+      <div>
         <label className="text-xs text-gray-400 mb-1 block">Notater (valgfritt)</label>
         <input
           type="text"
@@ -326,14 +338,39 @@ function AccountCard({
               </div>
             </div>
             {account.notes && <p className="text-xs text-gray-400 mt-2">{account.notes}</p>}
-            {yearGrowth > 0 && (
+            {account.target_amount && account.target_amount > 0 ? (
+              <div className="mt-2.5">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-400">Mot mål</span>
+                  <span className="text-xs text-gray-500 font-medium">
+                    {fmtShort(account.balance)} / {fmtShort(account.target_amount)}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${account.balance >= account.target_amount ? "bg-emerald-400" : "bg-blue-400"}`}
+                    style={{ width: `${Math.min(100, Math.round((account.balance / account.target_amount) * 100))}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-0.5">
+                  <span className="text-xs text-gray-300">
+                    {Math.round((account.balance / account.target_amount) * 100)}%
+                  </span>
+                  {account.balance < account.target_amount && (
+                    <span className="text-xs text-blue-500">
+                      mangler {fmtShort(account.target_amount - account.balance)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : yearGrowth > 0 ? (
               <div className="mt-2.5 flex items-center gap-2">
                 <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div className="h-full bg-emerald-300 rounded-full" style={{ width: "55%" }} />
                 </div>
                 <span className="text-xs text-emerald-600 font-medium">+{fmt(yearGrowth)} / år</span>
               </div>
-            )}
+            ) : null}
           </div>
           <div className="flex gap-2 flex-shrink-0">
             <button onClick={onEdit} className="text-gray-400 hover:text-blue-500 transition-colors">
@@ -461,10 +498,11 @@ export default function SparingView({ accounts: initAccounts, upcomingCosts = []
     setSaving(true);
     const balance = parseFloat(form.balance) || 0;
     const monthly = parseFloat(form.monthly_amount) || 0;
+    const target = parseFloat(form.target_amount) || null;
 
     const { data } = await supabase
       .from("savings_accounts")
-      .insert({ name: form.name.trim(), balance, monthly_amount: monthly, notes: form.notes.trim() || null })
+      .insert({ name: form.name.trim(), balance, monthly_amount: monthly, target_amount: target, notes: form.notes.trim() || null })
       .select()
       .single();
 
@@ -482,10 +520,11 @@ export default function SparingView({ accounts: initAccounts, upcomingCosts = []
     setSaving(true);
     const balance = parseFloat(editForm.balance) || 0;
     const monthly = parseFloat(editForm.monthly_amount) || 0;
+    const target = parseFloat(editForm.target_amount) || null;
 
     const { data } = await supabase
       .from("savings_accounts")
-      .update({ name: editForm.name.trim(), balance, monthly_amount: monthly, notes: editForm.notes.trim() || null })
+      .update({ name: editForm.name.trim(), balance, monthly_amount: monthly, target_amount: target, notes: editForm.notes.trim() || null })
       .eq("id", editingAccount.id)
       .select()
       .single();

@@ -57,6 +57,7 @@ type BufferAccount = {
   name: string;
   balance: number;
   monthly_amount: number;
+  target_amount?: number | null;
   budget_item_id?: string | null;
 };
 
@@ -245,14 +246,73 @@ export default function BudgetView({
   const getSimRestAnnual = (): number =>
     monthCols.reduce((s, col) => s + getSimRestMonth(col.year, col.month), 0);
 
-  // ── Prognose ─────────────────────────────────────────────────────────────────
+  // ── Anbefalt avsetning (dynamisk, likviditetsbasert) ─────────────────────────
+  //
+  // Algoritme: Finn minste månedlige avsetning X slik at avsetningssaldo
+  // aldri går i minus ved noe fremtidig forfall.
+  //
+  // For hver kostnad c_i som forfaller om m_i måneder (kumulativt K_i):
+  //   saldo + X * m_i - K_i ≥ 0  →  X ≥ (K_i - saldo) / m_i
+  //
+  // X_anbefalt = max(0, max over alle kostnader)
+  //
+  // Eksempel: saldo 250 000, kostnad 300 000 om 30 mnd
+  //   X = (300 000 - 250 000) / 30 = 1 667 kr/mnd
 
   const getMonthlyRecommendation = (): number => {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const horizon = new Date(today.getFullYear(), today.getMonth() + 12, 1);
-    const futureMaint = maintenanceTasks.filter((t) => { const d = new Date(t.due_date + "T00:00:00"); return d >= today && d < horizon; }).reduce((s, t) => s + t.estimated_cost, 0);
-    const futurePlan = plannedExpenses.filter((e) => { const d = new Date(e.date + "T00:00:00"); return d >= today && d < horizon; }).reduce((s, e) => s + e.amount, 0);
-    return Math.ceil((futureMaint + futurePlan) / 12);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayYear = today.getFullYear();
+    const todayMonth = today.getMonth() + 1; // 1-indeksert
+
+    // Måneder fra nåværende måned til forfallsmåned (minimum 1)
+    const monthsFrom = (date: Date): number => {
+      const y = date.getFullYear();
+      const m = date.getMonth() + 1;
+      return Math.max(1, (y - todayYear) * 12 + (m - todayMonth));
+    };
+
+    // Alle fremtidige kostnader (vedlikehold + planlagte), sortert etter dato
+    const allCosts = [
+      ...maintenanceTasks
+        .map((t) => ({ amount: t.estimated_cost, date: new Date(t.due_date + "T00:00:00") }))
+        .filter((c) => c.date >= today),
+      ...plannedExpenses
+        .map((e) => ({ amount: e.amount, date: new Date(e.date + "T00:00:00") }))
+        .filter((c) => c.date >= today),
+    ].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    if (allCosts.length === 0) return 0;
+
+    const B = bufferStartBalance; // nåværende saldo på avsetningskonto
+    let xRequired = 0;
+    let cumCost = 0;
+
+    for (const cost of allCosts) {
+      cumCost += cost.amount;
+      const m = monthsFrom(cost.date);
+      // Hvor mye må settes av per måned for å dekke alle kostnader til og med denne?
+      const needed = (cumCost - B) / m;
+      xRequired = Math.max(xRequired, needed);
+    }
+
+    const xCost = Math.max(0, xRequired);
+
+    // ── Bufferoppbygging mot målbeløp (lavere prioritet) ──────────────────────
+    // Beregnes bare hvis alle kjente kostnader er dekket (dvs. xCost er minimum)
+    // Fremgangsmåte: simuler hva buffersaldo blir etter alle kostnader er betalt,
+    // og bygg opp mot målet over 12 måneder.
+    const targetBalance = bufferAccounts.reduce((s, a) => s + (a.target_amount ?? 0), 0);
+    let xBuffer = 0;
+    if (targetBalance > 0) {
+      // Prosjektert saldo etter alle kostnader er dekket (grovt estimat)
+      const totalFutureCosts = allCosts.reduce((s, c) => s + c.amount, 0);
+      const projectedBalance = B + xCost * (allCosts.length > 0 ? Math.max(...allCosts.map((c) => monthsFrom(c.date))) : 12) - totalFutureCosts;
+      const bufferDeficit = Math.max(0, targetBalance - projectedBalance);
+      xBuffer = bufferDeficit > 0 ? Math.ceil(bufferDeficit / 12) : 0;
+    }
+
+    return Math.ceil(xCost + xBuffer);
   };
 
   // ── Buffer-simulering ────────────────────────────────────────────────────────
