@@ -40,7 +40,7 @@ function formatAmount(n: number) {
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Des"];
 
-export default function PlannedExpensesView({ initialExpenses }: { initialExpenses: Expense[] }) {
+export default function PlannedExpensesView({ initialExpenses, embedded = false }: { initialExpenses: Expense[]; embedded?: boolean }) {
   const router = useRouter();
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses);
   const [activeCategory, setActiveCategory] = useState("alle");
@@ -98,21 +98,23 @@ export default function PlannedExpensesView({ initialExpenses }: { initialExpens
   today.setHours(0, 0, 0, 0);
 
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
+    <main className={embedded ? "text-gray-900 p-6" : "min-h-screen bg-gray-50 text-gray-900 p-6"}>
       <div className="max-w-lg mx-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.back()} className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-              Tilbake
-            </button>
-            <div className="w-px h-5 bg-gray-200" />
-            <h1 className="text-lg font-semibold">Planlagte kostnader</h1>
-          </div>
+          {!embedded ? (
+            <div className="flex items-center gap-3">
+              <button onClick={() => router.back()} className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                Tilbake
+              </button>
+              <div className="w-px h-5 bg-gray-200" />
+              <h1 className="text-lg font-semibold">Planlagte kostnader</h1>
+            </div>
+          ) : <div />}
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"

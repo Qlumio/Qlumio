@@ -90,7 +90,7 @@ const Tag = ({ children }: { children: React.ReactNode }) => (
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function LFPView({ insurances: init_i, loans: init_l, pensions: init_p }: Props) {
+export default function LFPView({ insurances: init_i, loans: init_l, pensions: init_p, embedded = false }: Props & { embedded?: boolean }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("forsikring");
   const [insurances, setInsurances] = useState<Insurance[]>(init_i);
@@ -256,20 +256,22 @@ export default function LFPView({ insurances: init_i, loans: init_l, pensions: i
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
+    <main className={embedded ? "text-gray-900 p-6" : "min-h-screen bg-gray-50 text-gray-900 p-6"}>
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.back()} className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-              Tilbake
-            </button>
-            <div className="w-px h-5 bg-gray-100" />
-            <h1 className="text-lg font-semibold">Lån, forsikringer og pensjon</h1>
-          </div>
+          {!embedded ? (
+            <div className="flex items-center gap-3">
+              <button onClick={() => router.back()} className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                Tilbake
+              </button>
+              <div className="w-px h-5 bg-gray-100" />
+              <h1 className="text-lg font-semibold">Lån, forsikringer og pensjon</h1>
+            </div>
+          ) : <div />}
           <div className="flex gap-2">
             <button onClick={() => setShowExport(true)}
               className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 text-sm px-3 py-1.5 rounded-lg bg-white hover:bg-gray-100 transition-colors">

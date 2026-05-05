@@ -64,6 +64,7 @@ type Props = {
   overrides: Override[];
   maintenanceTasks: MaintenanceTask[];
   plannedExpenses: PlannedExpense[];
+  embedded?: boolean;
 };
 
 const MONTH_NAMES = ["jan", "feb", "mar", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "des"];
@@ -89,7 +90,7 @@ function fmt(n: number): string {
   return n.toLocaleString("nb-NO");
 }
 
-export default function BudgetView({ categories: initialCategories, overrides: initialOverrides, maintenanceTasks, plannedExpenses }: Props) {
+export default function BudgetView({ categories: initialCategories, overrides: initialOverrides, maintenanceTasks, plannedExpenses, embedded = false }: Props) {
   const router = useRouter();
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -421,23 +422,26 @@ export default function BudgetView({ categories: initialCategories, overrides: i
   const numCols = monthCols.length + 2;
 
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900">
+    <main className={embedded ? "text-gray-900" : "min-h-screen bg-gray-50 text-gray-900"}>
       {/* Header */}
       <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.back()}
-              className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-              Tilbake
-            </button>
-            <div className="w-px h-5 bg-gray-100" />
-            <h1 className="text-lg font-semibold">Familie økonomi</h1>
-          </div>
+          {!embedded && (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.back()}
+                className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                Tilbake
+              </button>
+              <div className="w-px h-5 bg-gray-100" />
+              <h1 className="text-lg font-semibold">Familie økonomi</h1>
+            </div>
+          )}
+          {embedded && <div />}
           <div className="flex items-center gap-2">
             {/* År-navigasjon */}
             <div className="flex items-center gap-1 bg-white rounded-lg px-1 py-0.5">
