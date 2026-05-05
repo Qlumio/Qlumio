@@ -194,6 +194,18 @@ export default function BudgetView({
     return inc - exp - getMaintenanceAnnualTotal() - getPlannedAnnualTotal();
   };
 
+  // Sum inntekter / Sum utgifter (inkl. engangsutgifter) for resultatsammendrag
+  const getIncomeMonth = (year: number, month: number) =>
+    incomeCat ? getCatMonthTotal(incomeCat, year, month) : 0;
+  const getIncomeAnnual = () =>
+    incomeCat ? getCatAnnualTotal(incomeCat) : 0;
+  const getTotalExpensesMonth = (year: number, month: number) =>
+    expenseCats.reduce((s, c) => s + getCatMonthTotal(c, year, month), 0)
+    + getMaintenanceMonthTotal(year, month) + getPlannedMonthTotal(year, month);
+  const getTotalExpensesAnnual = () =>
+    expenseCats.reduce((s, c) => s + getCatAnnualTotal(c), 0)
+    + getMaintenanceAnnualTotal() + getPlannedAnnualTotal();
+
   // ── Sparingsprojeksjon ───────────────────────────────────────────────────────
 
   const savingsCat = categories.find((c) => c.type === "savings");
@@ -515,7 +527,6 @@ export default function BudgetView({
                 {/* ── Engangsutgifter ── */}
                 <tr><td colSpan={numCols} className="py-1" /></tr>
                 {(maintenanceTasks.length > 0 || plannedExpenses.length > 0) && (() => {
-                  const rec = getMonthlyRecommendation();
                   return (
                     <>
                       <tr>
@@ -595,34 +606,92 @@ export default function BudgetView({
                           {(getMaintenanceAnnualTotal() + getPlannedAnnualTotal()) > 0 ? (getMaintenanceAnnualTotal() + getPlannedAnnualTotal()).toLocaleString("nb-NO") : "–"}
                         </td>
                       </tr>
+                    </>
+                  );
+                })()}
+
+                {/* ── Resultatsammendrag ── */}
+                {(() => {
+                  const rec = getMonthlyRecommendation();
+                  return (
+                    <>
+                      <tr><td colSpan={numCols} className="py-1" /></tr>
+
+                      {/* Sum inntekter */}
+                      <tr className="border-t-2 border-gray-200 bg-gray-50/40">
+                        <td className="sticky left-0 bg-gray-50/40 px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">Sum inntekter</td>
+                        {monthCols.map((col) => (
+                          <td key={`inc-${col.year}-${col.month}`} className={`text-right px-2 py-2 text-sm font-semibold text-green-700 ${col.isCurrent ? "bg-green-50/60" : ""}`}>
+                            {fmt(getIncomeMonth(col.year, col.month))}
+                          </td>
+                        ))}
+                        <td className="text-right px-2 py-2 text-sm font-semibold text-green-700">{fmt(getIncomeAnnual())}</td>
+                      </tr>
+
+                      {/* Sum utgifter */}
+                      <tr className="bg-gray-50/40">
+                        <td className="sticky left-0 bg-gray-50/40 px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">Sum utgifter</td>
+                        {monthCols.map((col) => (
+                          <td key={`exp-${col.year}-${col.month}`} className={`text-right px-2 py-2 text-sm font-semibold text-gray-700 ${col.isCurrent ? "bg-gray-100/80" : ""}`}>
+                            {fmt(getTotalExpensesMonth(col.year, col.month))}
+                          </td>
+                        ))}
+                        <td className="text-right px-2 py-2 text-sm font-semibold text-gray-700">{fmt(getTotalExpensesAnnual())}</td>
+                      </tr>
+
+                      {/* Resultat */}
+                      <tr className="border-t border-emerald-200/60 bg-emerald-50/50">
+                        <td className="sticky left-0 bg-emerald-50/50 px-4 py-2.5 text-sm font-bold text-gray-900">Resultat</td>
+                        {monthCols.map((col) => {
+                          const val = getRestMonth(col.year, col.month);
+                          return <td key={`rest-${col.year}-${col.month}`} className={`text-right px-2 py-2.5 text-sm font-bold ${val >= 0 ? "text-green-600" : "text-red-500"}`}>{fmt(val)}</td>;
+                        })}
+                        <td className={`text-right px-2 py-2.5 text-sm font-bold ${getRestAnnual() >= 0 ? "text-green-600" : "text-red-500"}`}>{fmt(getRestAnnual())}</td>
+                      </tr>
+
+                      {/* Anbefalt avsetning */}
                       {rec > 0 && (
-                        <tr className="bg-blue-50 border-b border-blue-100">
-                          <td className="sticky left-0 bg-blue-50 px-4 py-2">
+                        <tr className="bg-blue-50/60 border-t border-blue-100">
+                          <td className="sticky left-0 bg-blue-50/60 px-4 py-2">
                             <div className="text-sm font-semibold text-blue-700">📊 Anbefalt avsetning</div>
                             <div className="text-xs text-blue-400 mt-0.5">Basert på forventede kostnader neste 12 mnd</div>
                           </td>
                           {monthCols.map((col) => (
-                            <td key={`rec-${col.year}-${col.month}`} className={`text-right px-2 py-2 text-sm font-semibold text-blue-600 ${col.isCurrent ? "bg-blue-100" : ""}`}>
+                            <td key={`rec-${col.year}-${col.month}`} className={`text-right px-2 py-2 text-sm font-semibold text-blue-600 ${col.isCurrent ? "bg-blue-100/80" : ""}`}>
                               {rec.toLocaleString("nb-NO")}
                             </td>
                           ))}
                           <td className="text-right px-2 py-2 text-sm font-semibold text-blue-600">{(rec * 12).toLocaleString("nb-NO")}</td>
                         </tr>
                       )}
+
+                      {/* Disponibelt etter avsetning */}
+                      {rec > 0 && (
+                        <tr className="border-t border-gray-200">
+                          <td className="sticky left-0 bg-white px-4 py-2.5">
+                            <div className="text-sm font-bold text-gray-900">Disponibelt etter avsetning</div>
+                          </td>
+                          {monthCols.map((col) => {
+                            const disp = getRestMonth(col.year, col.month) - rec;
+                            const ok = disp >= 0;
+                            return (
+                              <td key={`disp-${col.year}-${col.month}`} className={`text-right px-2 py-2.5 ${col.isCurrent ? "bg-gray-50" : ""}`}>
+                                <div className={`text-sm font-bold ${ok ? "text-green-600" : "text-orange-500"}`}>{fmt(disp)}</div>
+                                {!ok && <div className="text-xs text-orange-400 mt-0.5">mangler {fmt(Math.abs(disp))}</div>}
+                              </td>
+                            );
+                          })}
+                          <td className="text-right px-2 py-2.5">
+                            {(() => {
+                              const dispAnnual = getRestAnnual() - rec * 12;
+                              return <div className={`text-sm font-bold ${dispAnnual >= 0 ? "text-green-600" : "text-orange-500"}`}>{fmt(dispAnnual)}</div>;
+                            })()}
+                          </td>
+                        </tr>
+                      )}
                     </>
                   );
                 })()}
-
-                {/* ── Restbeløp ── */}
-                <tr><td colSpan={numCols} className="py-1" /></tr>
-                <tr className="border-t border-emerald-200/60 bg-emerald-50/50">
-                  <td className="sticky left-0 bg-emerald-50/50 px-4 py-3 text-sm font-bold text-gray-900">Restbeløp</td>
-                  {monthCols.map((col) => {
-                    const val = getRestMonth(col.year, col.month);
-                    return <td key={`rest-${col.year}-${col.month}`} className={`text-right px-2 py-3 text-sm font-bold ${val >= 0 ? "text-green-600" : "text-red-500"}`}>{fmt(val)}</td>;
-                  })}
-                  <td className={`text-right px-2 py-3 text-sm font-bold ${getRestAnnual() >= 0 ? "text-green-600" : "text-red-500"}`}>{fmt(getRestAnnual())}</td>
-                </tr>
 
                 {/* ── Avsetningssaldo ── */}
                 {bufferAccounts.length > 0 && (
