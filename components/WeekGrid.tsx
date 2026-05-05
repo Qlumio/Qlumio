@@ -319,7 +319,7 @@ export default function WeekGrid({ members, events, exceptions, tasks, currentMo
             Tilbake
           </button>
           <div className="w-px h-5 bg-gray-100" />
-          <h1 className="text-lg font-semibold">Kalender</h1>
+          <h1 className="text-lg font-semibold">Aktiviteter</h1>
         </div>
         <div className="flex items-center gap-2">
         <Link

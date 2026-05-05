@@ -8,11 +8,11 @@ import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
 // ─── Modul-konfigurasjon ───────────────────────────────────────────────────
 
 const ALL_MODULES = [
-  { href: "/aktiviteter", title: "Kalender", icon: "📅", roles: ["admin", "member"], description: "Kalender og familieaktiviteter" },
-  { href: "/oppgaver", title: "Oppgaver", icon: "✅", roles: ["admin", "member"], description: "Gjøremål og praktiske oppgaver" },
-  { href: "/innkjop", title: "Innkjøp", icon: "🛒", roles: ["admin", "member"], description: "Handlelister og kortsiktige utgifter" },
-  { href: "/eiendeler", title: "Eiendeler", icon: "🔧", roles: ["admin"], description: "Oversikt over eiendeler og utstyr" },
-  { href: "/okonomi", title: "Økonomi", icon: "💰", roles: ["admin"], description: "Budsjett, sparing, lån og forsikring" },
+  { href: "/aktiviteter", title: "Aktiviteter", icon: "📅", roles: ["admin", "member"], description: "Ukentlig oversikt over familiens avtaler" },
+  { href: "/oppgaver", title: "Gjøremål", icon: "✅", roles: ["admin", "member"], description: "Gjøremål og praktiske ting som må gjøres" },
+  { href: "/innkjop", title: "Innkjøp", icon: "🛒", roles: ["admin", "member"], description: "Handlelister og planlagte kjøp" },
+  { href: "/eiendeler", title: "Eiendeler", icon: "🔧", roles: ["admin"], description: "Det vi eier og hva det krever å holde det i gang" },
+  { href: "/okonomi", title: "Økonomi", icon: "💰", roles: ["admin"], description: "Oversikt over inntekter, utgifter og fremtidige kostnader" },
   { href: "/innstillinger", title: "Innstillinger", icon: "⚙️", roles: ["admin"], description: "" },
 ];
 

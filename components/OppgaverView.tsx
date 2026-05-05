@@ -148,7 +148,7 @@ export default function OppgaverView({ tasks: initialTasks, members }: Props) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h1 className="text-xl font-bold text-gray-900">Oppgaver</h1>
+            <h1 className="text-xl font-bold text-gray-900">Gjøremål</h1>
           </div>
           <button
             onClick={() => setShowAdd(true)}

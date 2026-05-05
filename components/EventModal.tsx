@@ -390,8 +390,16 @@ export default function EventModal({ date, members, preSelectedMemberId, onSave,
 
   // Frittstående oppgave-modus
   const [taskTitle, setTaskTitle] = useState("");
-  const [taskAssignedTo, setTaskAssignedTo] = useState(preSelectedMemberId);
+  const [taskAssignedTo, setTaskAssignedTo] = useState<string[]>(
+    preSelectedMemberId ? [preSelectedMemberId] : []
+  );
   const [taskNotes, setTaskNotes] = useState("");
+
+  const toggleTaskAssignee = (id: string) => {
+    setTaskAssignedTo((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
 
   const addTaskDraft = () => {
     setTaskDrafts((prev) => [...prev, { id: nextTaskId.current++, title: "", assignedTo: preSelectedMemberId }]);
@@ -424,16 +432,19 @@ export default function EventModal({ date, members, preSelectedMemberId, onSave,
     setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   };
 
-  // Lagre frittstående oppgave
+  // Lagre frittstående oppgave – én rad per tildelt person (eller én uten tildeling)
   const handleSaveTask = async () => {
     if (!canSaveTask) return;
-    await supabase.from("tasks").insert({
-      title: taskTitle.trim(),
-      notes: taskNotes.trim() || null,
-      due_date: date,
-      assigned_to: taskAssignedTo || null,
-      completed: false,
-    });
+    const assignees = taskAssignedTo.length > 0 ? taskAssignedTo : [null];
+    await supabase.from("tasks").insert(
+      assignees.map((assignedTo) => ({
+        title: taskTitle.trim(),
+        notes: taskNotes.trim() || null,
+        due_date: date,
+        assigned_to: assignedTo,
+        completed: false,
+      }))
+    );
     onClose();
   };
 
@@ -520,29 +531,21 @@ export default function EventModal({ date, members, preSelectedMemberId, onSave,
                 {members.map((member) => (
                   <label key={member.id} className="flex items-center gap-2.5 cursor-pointer">
                     <input
-                      type="radio"
-                      name="task-assigned"
-                      value={member.id}
-                      checked={taskAssignedTo === member.id}
-                      onChange={() => setTaskAssignedTo(member.id)}
+                      type="checkbox"
+                      checked={taskAssignedTo.includes(member.id)}
+                      onChange={() => toggleTaskAssignee(member.id)}
                       className="w-4 h-4 accent-blue-500"
                     />
                     <div className={`w-2.5 h-2.5 rounded-full ${member.color}`} />
                     <span className="text-sm text-gray-700">{member.name}</span>
                   </label>
                 ))}
-                <label className="flex items-center gap-2.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="task-assigned"
-                    value=""
-                    checked={taskAssignedTo === ""}
-                    onChange={() => setTaskAssignedTo("")}
-                    className="w-4 h-4 accent-blue-500"
-                  />
-                  <span className="text-sm text-gray-400">Ingen tildelt</span>
-                </label>
               </div>
+              {taskAssignedTo.length > 1 && (
+                <p className="text-xs text-gray-400 mt-2">
+                  Oppretter én oppgave per person ({taskAssignedTo.length} stk)
+                </p>
+              )}
             </div>
             <div className="flex gap-2">
               <button onClick={onClose}
