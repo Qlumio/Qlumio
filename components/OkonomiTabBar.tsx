@@ -6,6 +6,7 @@ const TABS = [
   { key: "budsjett",  label: "Budsjett",            icon: "💰", href: "/okonomi" },
   { key: "planlagte", label: "Planlagte kostnader",  icon: "📋", href: "/okonomi?tab=planlagte" },
   { key: "lfp",       label: "Lån & forsikring",     icon: "🛡️", href: "/okonomi?tab=lfp" },
+  { key: "innsikt",   label: "Innsikt",              icon: "📊", href: "/okonomi?tab=innsikt" },
 ];
 
 export default function OkonomiTabBar({ active }: { active: string }) {

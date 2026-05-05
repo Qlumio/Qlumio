@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import BudgetView from "@/components/BudgetView";
 import PlannedExpensesView from "@/components/PlannedExpensesView";
 import LFPView from "@/components/LFPView";
+import InnsiktView, { type InnsiktLoan } from "@/components/InnsiktView";
 import OkonomiTabBar from "@/components/OkonomiTabBar";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -41,6 +42,32 @@ export default async function OkonomiPage({
         insurances={insurances ?? []}
         loans={loans ?? []}
         pensions={pensions ?? []}
+        embedded
+      />
+    );
+
+  } else if (tab === "innsikt") {
+    const [{ data: loansRaw }, { data: savingsCat }] = await Promise.all([
+      supabase.from("loans").select("*").order("created_at"),
+      supabase
+        .from("budget_categories")
+        .select("id, budget_items(id, name, starting_balance, monthly_default)")
+        .eq("type", "savings")
+        .maybeSingle(),
+    ]);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const savingsItems = ((savingsCat?.budget_items ?? []) as any[]).map((item) => ({
+      id: item.id as string,
+      name: item.name as string,
+      starting_balance: (item.starting_balance ?? 0) as number,
+      monthly_default: (item.monthly_default ?? 0) as number,
+    }));
+
+    content = (
+      <InnsiktView
+        loans={(loansRaw ?? []) as InnsiktLoan[]}
+        savingsItems={savingsItems}
         embedded
       />
     );

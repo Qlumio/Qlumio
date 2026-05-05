@@ -17,7 +17,7 @@ type Loan = {
   id: string; name: string; type: string; provider: string;
   remaining_debt: number | null; interest_rate: number | null;
   monthly_payment: number | null; end_date: string | null;
-  notes: string | null; created_at: string;
+  notes: string | null; budget_item_id: string | null; created_at: string;
 };
 
 type Pension = {
@@ -55,6 +55,17 @@ const emptyInsurance = { name: "", type: "Bil", provider: "", annual_premium: ""
 const emptyLoan = { name: "", type: "Boliglån", provider: "", remaining_debt: "", interest_rate: "", monthly_payment: "", end_date: "", notes: "" };
 const emptyPension = { name: "", type: "OTP", provider: "", current_balance: "", monthly_contribution: "", notes: "" };
 
+const loanToForm = (l: Loan) => ({
+  name: l.name,
+  type: l.type,
+  provider: l.provider,
+  remaining_debt: l.remaining_debt != null ? String(l.remaining_debt) : "",
+  interest_rate: l.interest_rate != null ? String(l.interest_rate) : "",
+  monthly_payment: l.monthly_payment != null ? String(l.monthly_payment) : "",
+  end_date: l.end_date ?? "",
+  notes: l.notes ?? "",
+});
+
 // ─── Shared UI helpers (outside component to avoid re-creation) ──────────────
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
@@ -84,6 +95,14 @@ const DeleteBtn = ({ onClick }: { onClick: () => void }) => (
   </button>
 );
 
+const EditBtn = ({ onClick }: { onClick: () => void }) => (
+  <button onClick={onClick} className="text-gray-400 hover:text-blue-500 transition-colors flex-shrink-0">
+    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    </svg>
+  </button>
+);
+
 const Tag = ({ children }: { children: React.ReactNode }) => (
   <span className="bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded-full">{children}</span>
 );
@@ -105,6 +124,55 @@ export default function LFPView({ insurances: init_i, loans: init_l, pensions: i
   const [lForm, setLForm] = useState({ ...emptyLoan });
   const [pForm, setPForm] = useState({ ...emptyPension });
 
+  // Edit state for loans
+  const [editingLoan, setEditingLoan] = useState<Loan | null>(null);
+  const [lEditForm, setLEditForm] = useState({ ...emptyLoan });
+
+  // ─── Budget sync helpers ────────────────────────────────────────────────────
+
+  const createLinkedBudgetItem = async (loanId: string, name: string, monthly_payment: number | null, remaining_debt: number | null) => {
+    const { data: loanCat } = await supabase
+      .from("budget_categories")
+      .select("id")
+      .eq("type", "loan")
+      .maybeSingle();
+
+    if (!loanCat) return;
+
+    const { data: newItem } = await supabase
+      .from("budget_items")
+      .insert({
+        category_id: loanCat.id,
+        name: name,
+        sort_order: 999,
+        monthly_default: monthly_payment ?? 0,
+        starting_balance: remaining_debt ?? 0,
+        source: "loan",
+      })
+      .select()
+      .single();
+
+    if (newItem) {
+      await supabase.from("loans").update({ budget_item_id: newItem.id }).eq("id", loanId);
+      return newItem.id as string;
+    }
+  };
+
+  const syncBudgetItem = async (budgetItemId: string, name: string, monthly_payment: number | null, remaining_debt: number | null) => {
+    await supabase
+      .from("budget_items")
+      .update({
+        name: name,
+        monthly_default: monthly_payment ?? 0,
+        starting_balance: remaining_debt ?? 0,
+      })
+      .eq("id", budgetItemId);
+  };
+
+  const deleteLinkedBudgetItem = async (budgetItemId: string) => {
+    await supabase.from("budget_items").delete().eq("id", budgetItemId);
+  };
+
   // ─── Save handlers ──────────────────────────────────────────────────────────
 
   const saveInsurance = async () => {
@@ -125,16 +193,65 @@ export default function LFPView({ insurances: init_i, loans: init_l, pensions: i
   const saveLoan = async () => {
     if (!lForm.name.trim() || !lForm.provider.trim()) return;
     setSaving(true);
+
+    const monthly_payment = lForm.monthly_payment ? parseInt(lForm.monthly_payment) : null;
+    const remaining_debt = lForm.remaining_debt ? parseInt(lForm.remaining_debt) : null;
+
     const { data } = await supabase.from("loans").insert({
       name: lForm.name.trim(), type: lForm.type, provider: lForm.provider.trim(),
-      remaining_debt: lForm.remaining_debt ? parseInt(lForm.remaining_debt) : null,
+      remaining_debt,
       interest_rate: lForm.interest_rate ? parseFloat(lForm.interest_rate) : null,
-      monthly_payment: lForm.monthly_payment ? parseInt(lForm.monthly_payment) : null,
+      monthly_payment,
       end_date: lForm.end_date || null,
       notes: lForm.notes.trim() || null,
     }).select().single();
+
+    if (data) {
+      // Link to budget
+      const budgetItemId = await createLinkedBudgetItem(data.id, lForm.name.trim(), monthly_payment, remaining_debt);
+      const savedLoan: Loan = { ...data as Loan, budget_item_id: budgetItemId ?? null };
+      setLoans((p) => [...p, savedLoan]);
+      setLForm({ ...emptyLoan });
+      setShowAdd(false);
+    }
     setSaving(false);
-    if (data) { setLoans((p) => [...p, data as Loan]); setLForm({ ...emptyLoan }); setShowAdd(false); }
+  };
+
+  const updateLoan = async () => {
+    if (!editingLoan || !lEditForm.name.trim() || !lEditForm.provider.trim()) return;
+    setSaving(true);
+
+    const monthly_payment = lEditForm.monthly_payment ? parseInt(lEditForm.monthly_payment) : null;
+    const remaining_debt = lEditForm.remaining_debt ? parseInt(lEditForm.remaining_debt) : null;
+
+    const { data } = await supabase
+      .from("loans")
+      .update({
+        name: lEditForm.name.trim(), type: lEditForm.type, provider: lEditForm.provider.trim(),
+        remaining_debt,
+        interest_rate: lEditForm.interest_rate ? parseFloat(lEditForm.interest_rate) : null,
+        monthly_payment,
+        end_date: lEditForm.end_date || null,
+        notes: lEditForm.notes.trim() || null,
+      })
+      .eq("id", editingLoan.id)
+      .select()
+      .single();
+
+    if (data) {
+      const updatedLoan = data as Loan;
+      // Sync budget item
+      if (editingLoan.budget_item_id) {
+        await syncBudgetItem(editingLoan.budget_item_id, lEditForm.name.trim(), monthly_payment, remaining_debt);
+      } else {
+        // Create budget item if it doesn't exist yet
+        const budgetItemId = await createLinkedBudgetItem(editingLoan.id, lEditForm.name.trim(), monthly_payment, remaining_debt);
+        updatedLoan.budget_item_id = budgetItemId ?? null;
+      }
+      setLoans((p) => p.map((l) => l.id === editingLoan.id ? updatedLoan : l));
+      setEditingLoan(null);
+    }
+    setSaving(false);
   };
 
   const savePension = async () => {
@@ -156,10 +273,13 @@ export default function LFPView({ insurances: init_i, loans: init_l, pensions: i
     setInsurances((p) => p.filter((i) => i.id !== id));
   };
 
-  const deleteLoan = async (id: string) => {
-    if (!confirm("Slett dette lånet?")) return;
-    await supabase.from("loans").delete().eq("id", id);
-    setLoans((p) => p.filter((l) => l.id !== id));
+  const deleteLoan = async (l: Loan) => {
+    if (!confirm("Slett dette lånet? Tilknyttet budsjettpost slettes også.")) return;
+    if (l.budget_item_id) {
+      await deleteLinkedBudgetItem(l.budget_item_id);
+    }
+    await supabase.from("loans").delete().eq("id", l.id);
+    setLoans((p) => p.filter((x) => x.id !== l.id));
   };
 
   const deletePension = async (id: string) => {
@@ -338,8 +458,13 @@ export default function LFPView({ insurances: init_i, loans: init_l, pensions: i
             {loans.map((l) => (
               <div key={l.id} className="bg-white rounded-xl p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-semibold mb-1.5">{l.name}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className="font-semibold">{l.name}</div>
+                      {l.budget_item_id && (
+                        <span className="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">✓ budsjett</span>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-1.5 mb-2">
                       <Tag>{l.type}</Tag>
                       <Tag>📍 {l.provider}</Tag>
@@ -350,7 +475,10 @@ export default function LFPView({ insurances: init_i, loans: init_l, pensions: i
                     {l.end_date && <p className="text-xs text-gray-500">Sluttdato: {fmtDate(l.end_date)}</p>}
                     {l.notes && <p className="text-xs text-gray-400 mt-0.5">{l.notes}</p>}
                   </div>
-                  <DeleteBtn onClick={() => deleteLoan(l.id)} />
+                  <div className="flex gap-2 flex-shrink-0">
+                    <EditBtn onClick={() => { setEditingLoan(l); setLEditForm(loanToForm(l)); }} />
+                    <DeleteBtn onClick={() => deleteLoan(l)} />
+                  </div>
                 </div>
               </div>
             ))}
@@ -431,6 +559,7 @@ export default function LFPView({ insurances: init_i, loans: init_l, pensions: i
                   <Field label="Sluttdato"><Input type="date" value={lForm.end_date} onChange={(v) => setLForm({ ...lForm, end_date: v })} /></Field>
                 </div>
                 <Field label="Notater"><Input value={lForm.notes} onChange={(v) => setLForm({ ...lForm, notes: v })} placeholder="Valgfritt" /></Field>
+                <p className="text-xs text-gray-400">Lånet kobles automatisk til budsjettet som en lånekostnad.</p>
               </div>
             )}
 
@@ -456,6 +585,42 @@ export default function LFPView({ insurances: init_i, loans: init_l, pensions: i
                 className="flex-1 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-40 transition-colors text-sm font-medium text-white"
               >
                 {saving ? "Lagrer…" : "Lagre"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Rediger lån ── */}
+      {editingLoan && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setEditingLoan(null)}>
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold mb-4">Rediger lån</h2>
+            <div className="space-y-3 mb-5">
+              <Field label="Navn *"><Input value={lEditForm.name} onChange={(v) => setLEditForm({ ...lEditForm, name: v })} placeholder='F.eks. "Huslån DNB"' /></Field>
+              <Field label="Type"><Select value={lEditForm.type} onChange={(v) => setLEditForm({ ...lEditForm, type: v })} options={LOAN_TYPES} /></Field>
+              <Field label="Leverandør *"><Input value={lEditForm.provider} onChange={(v) => setLEditForm({ ...lEditForm, provider: v })} placeholder='F.eks. "DNB"' /></Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Restgjeld (kr)"><Input type="number" value={lEditForm.remaining_debt} onChange={(v) => setLEditForm({ ...lEditForm, remaining_debt: v })} placeholder="3 500 000" /></Field>
+                <Field label="Rente (%)"><Input type="number" value={lEditForm.interest_rate} onChange={(v) => setLEditForm({ ...lEditForm, interest_rate: v })} placeholder="5.29" /></Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Mnd. betaling (kr)"><Input type="number" value={lEditForm.monthly_payment} onChange={(v) => setLEditForm({ ...lEditForm, monthly_payment: v })} placeholder="18 000" /></Field>
+                <Field label="Sluttdato"><Input type="date" value={lEditForm.end_date} onChange={(v) => setLEditForm({ ...lEditForm, end_date: v })} /></Field>
+              </div>
+              <Field label="Notater"><Input value={lEditForm.notes} onChange={(v) => setLEditForm({ ...lEditForm, notes: v })} placeholder="Valgfritt" /></Field>
+              {editingLoan.budget_item_id && (
+                <p className="text-xs text-green-600 bg-green-50 p-2 rounded-lg">Endringer synkroniseres automatisk til budsjettet.</p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setEditingLoan(null)} className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-sm">Avbryt</button>
+              <button
+                onClick={updateLoan}
+                disabled={saving}
+                className="flex-1 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-40 transition-colors text-sm font-medium text-white"
+              >
+                {saving ? "Lagrer…" : "Lagre endringer"}
               </button>
             </div>
           </div>
