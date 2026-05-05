@@ -113,7 +113,6 @@ export default function BudgetView({
   });
 
   const [showOneTimeDetails, setShowOneTimeDetails] = useState(false);
-  const [showSavingsProjection, setShowSavingsProjection] = useState(false);
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
 
   const toggleCat = (id: string) =>
@@ -133,8 +132,6 @@ export default function BudgetView({
     initialCategories.forEach((cat) => cat.items.forEach((item) => { sb[item.id] = Number(item.starting_balance) || 0; }));
     return sb;
   });
-  const [editStartKey, setEditStartKey] = useState<string | null>(null);
-  const [editStartValue, setEditStartValue] = useState("");
 
   // ── Beregninger ──────────────────────────────────────────────────────────────
 
@@ -217,13 +214,6 @@ export default function BudgetView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [getSavingsBalance]
   );
-
-  const saveStartingBalance = async (itemId: string) => {
-    const val = Math.round(parseFloat(editStartValue) || 0);
-    await supabase.from("budget_items").update({ starting_balance: val }).eq("id", itemId);
-    setStartingBalances((prev) => ({ ...prev, [itemId]: val }));
-    setEditStartKey(null);
-  };
 
   // ── Simulert budsjett ────────────────────────────────────────────────────────
 
@@ -427,9 +417,9 @@ export default function BudgetView({
           {/* Helseindikator */}
           {healthStatus !== "nodata" && (
             <div className={`mx-4 mt-3 mb-1 rounded-xl p-4 border ${
-              healthStatus === "green" ? "bg-green-50 border-green-100" :
-              healthStatus === "yellow" ? "bg-amber-50 border-amber-100" :
-              "bg-red-50 border-red-100"}`}>
+              healthStatus === "green" ? "bg-green-50/50 border-green-100/60" :
+              healthStatus === "yellow" ? "bg-amber-50/50 border-amber-100/60" :
+              "bg-red-50/50 border-red-100/60"}`}>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-lg">{healthStatus === "green" ? "🟢" : healthStatus === "yellow" ? "🟡" : "🔴"}</span>
@@ -483,7 +473,7 @@ export default function BudgetView({
                   const isExpanded = expandedCats.has(cat.id);
                   return (
                     <React.Fragment key={cat.id}>
-                      <tr onClick={() => toggleCat(cat.id)} className="cursor-pointer hover:bg-gray-50 border-t-2 border-gray-200 group">
+                      <tr onClick={() => toggleCat(cat.id)} className="cursor-pointer hover:bg-gray-50 border-t border-gray-100 group">
                         <td className="sticky left-0 bg-white group-hover:bg-gray-50 px-4 py-2.5 transition-colors">
                           <div className="flex items-center gap-2">
                             <span className={`text-gray-400 text-xs transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
@@ -678,105 +668,14 @@ export default function BudgetView({
 
                 {/* ── Restbeløp ── */}
                 <tr><td colSpan={numCols} className="py-1" /></tr>
-                <tr className="border-t-2 border-emerald-500/40 bg-emerald-50">
-                  <td className="sticky left-0 bg-emerald-50 px-4 py-3 text-sm font-bold text-gray-900">Restbeløp</td>
+                <tr className="border-t border-emerald-200/60 bg-emerald-50/50">
+                  <td className="sticky left-0 bg-emerald-50/50 px-4 py-3 text-sm font-bold text-gray-900">Restbeløp</td>
                   {monthCols.map((col) => {
                     const val = getRestMonth(col.year, col.month);
                     return <td key={`rest-${col.year}-${col.month}`} className={`text-right px-2 py-3 text-sm font-bold ${val >= 0 ? "text-green-600" : "text-red-500"}`}>{fmt(val)}</td>;
                   })}
                   <td className={`text-right px-2 py-3 text-sm font-bold ${getRestAnnual() >= 0 ? "text-green-600" : "text-red-500"}`}>{fmt(getRestAnnual())}</td>
                 </tr>
-
-                {/* ── Saldo – sparing & avsetning ── */}
-                {savingsCat && savingsCat.items.length > 0 && (() => {
-                  const getSaldoForItem = (item: Item, col: MonthCol) =>
-                    item.id === bufferItem?.id
-                      ? getBufferBalance(item.id, col.month, col.year)
-                      : getSavingsBalance(item.id, col.month, col.year);
-
-                  return (
-                    <>
-                      <tr><td colSpan={numCols} className="py-2" /></tr>
-                      {/* Seksjonshode */}
-                      <tr onClick={() => setShowSavingsProjection((v) => !v)}
-                        className="cursor-pointer hover:bg-gray-50 border-t-2 border-blue-200/60 group">
-                        <td className="sticky left-0 bg-white group-hover:bg-gray-50 px-4 py-2.5">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-gray-400 text-xs transition-transform ${showSavingsProjection ? "rotate-90" : ""}`}>▶</span>
-                            <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">💰 Saldo – sparing & avsetning</span>
-                            <span className="text-xs text-gray-300">{savingsCat.items.length} kontoer</span>
-                          </div>
-                        </td>
-                        {monthCols.map((col) => {
-                          const total = savingsCat.items.reduce((s, item) => s + getSaldoForItem(item, col), 0);
-                          return (
-                            <td key={`sp-tot-${col.year}-${col.month}`}
-                              className={`text-right px-2 py-2.5 text-sm font-semibold ${col.isCurrent ? "bg-gray-100" : ""} ${total < 0 ? "text-red-500" : "text-blue-700"}`}
-                              onClick={(e) => e.stopPropagation()}>
-                              {total === 0 ? "–" : total.toLocaleString("nb-NO")}
-                            </td>
-                          );
-                        })}
-                        <td className="text-right px-2 py-2.5 text-sm font-semibold text-blue-700" onClick={(e) => e.stopPropagation()}>
-                          {(() => {
-                            const lastCol = monthCols[monthCols.length - 1];
-                            const yearEnd = savingsCat.items.reduce((s, item) => s + getSaldoForItem(item, lastCol), 0);
-                            return yearEnd === 0 ? "–" : yearEnd.toLocaleString("nb-NO");
-                          })()}
-                        </td>
-                      </tr>
-
-                      {/* Individuelle kontoer */}
-                      {showSavingsProjection && savingsCat.items.map((item) => {
-                        const isBuffer = item.id === bufferItem?.id;
-                        const startBal = startingBalances[item.id] ?? 0;
-                        const monthly = getVal(item.id, selectedYear, 1);
-                        return (
-                          <tr key={`sproj-${item.id}`} className="border-b border-gray-100 hover:bg-blue-50/30 group">
-                            <td className="sticky left-0 bg-gray-50 group-hover:bg-blue-50/40 px-4 py-2 pl-8">
-                              <div className="text-sm font-medium text-gray-700 flex items-center gap-1">
-                                {isBuffer && <span>🏦</span>}
-                                {item.name}
-                              </div>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                {editStartKey === item.id ? (
-                                  <input type="number" value={editStartValue}
-                                    onChange={(e) => setEditStartValue(e.target.value)}
-                                    onBlur={() => saveStartingBalance(item.id)}
-                                    onKeyDown={(e) => { if (e.key === "Enter") saveStartingBalance(item.id); if (e.key === "Escape") setEditStartKey(null); }}
-                                    autoFocus className="w-24 text-right bg-blue-100 rounded px-1 py-0.5 outline-none ring-1 ring-blue-500 text-xs" />
-                                ) : (
-                                  <button
-                                    onClick={() => { setEditStartKey(item.id); setEditStartValue(startBal === 0 ? "" : String(startBal)); }}
-                                    className="text-xs text-gray-400 hover:text-blue-500 transition-colors">
-                                    Saldo: {startBal === 0 ? <span className="text-gray-300">–</span> : startBal.toLocaleString("nb-NO") + " kr"}
-                                  </button>
-                                )}
-                                {monthly > 0 && <span className="text-xs text-gray-300">· +{monthly.toLocaleString("nb-NO")}/mnd</span>}
-                              </div>
-                            </td>
-                            {monthCols.map((col) => {
-                              const bal = getSaldoForItem(item, col);
-                              return (
-                                <td key={`sbal-${item.id}-${col.month}`}
-                                  className={`text-right px-2 py-2 text-sm font-medium ${col.isCurrent ? "bg-blue-50" : ""} ${bal < 0 ? "text-red-500" : bal > startBal ? "text-green-600" : "text-gray-500"}`}>
-                                  {bal === 0 && startBal === 0 ? "–" : bal.toLocaleString("nb-NO")}
-                                </td>
-                              );
-                            })}
-                            <td className="text-right px-2 py-2 text-sm text-gray-400">
-                              {(() => {
-                                const lastCol = monthCols[monthCols.length - 1];
-                                const yearEnd = getSaldoForItem(item, lastCol);
-                                return yearEnd === 0 && startBal === 0 ? "–" : yearEnd.toLocaleString("nb-NO");
-                              })()}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </>
-                  );
-                })()}
 
                 <tr><td colSpan={numCols} className="py-4" /></tr>
               </tbody>
@@ -934,8 +833,8 @@ export default function BudgetView({
 
                   {/* Simulert restbeløp */}
                   <tr><td colSpan={numCols} className="py-1" /></tr>
-                  <tr className="border-t-2 border-emerald-500/40 bg-emerald-50">
-                    <td className="sticky left-0 bg-emerald-50 px-4 py-3 text-sm font-bold text-gray-900">Simulert restbeløp</td>
+                  <tr className="border-t border-emerald-200/60 bg-emerald-50/50">
+                    <td className="sticky left-0 bg-emerald-50/50 px-4 py-3 text-sm font-bold text-gray-900">Simulert restbeløp</td>
                     {monthCols.map((col) => {
                       const val = getSimRestMonth(col.year, col.month);
                       const actual = getRestMonth(col.year, col.month);

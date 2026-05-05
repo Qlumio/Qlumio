@@ -5,6 +5,7 @@ import PlannedExpensesView from "@/components/PlannedExpensesView";
 import LFPView from "@/components/LFPView";
 import LanView from "@/components/LanView";
 import InnsiktView, { type InnsiktLoan } from "@/components/InnsiktView";
+import SparingView from "@/components/SparingView";
 import OkonomiTabBar from "@/components/OkonomiTabBar";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -22,8 +23,17 @@ export default async function OkonomiPage({
 
   let content: React.ReactNode;
 
+  // ── Sparing ───────────────────────────────────────────────────────────────────
+  if (tab === "sparing") {
+    const { data: accounts } = await supabase
+      .from("savings_accounts")
+      .select("*")
+      .order("created_at");
+
+    content = <SparingView accounts={accounts ?? []} embedded />;
+
   // ── Forsikringer ─────────────────────────────────────────────────────────────
-  if (tab === "forsikringer") {
+  } else if (tab === "forsikringer") {
     const { data: insurances } = await supabase
       .from("insurances")
       .select("*")
@@ -76,28 +86,16 @@ export default async function OkonomiPage({
 
   // ── Innsikt ───────────────────────────────────────────────────────────────────
   } else if (tab === "innsikt") {
-    const [{ data: loansRaw }, { data: savingsCat }, { data: assetsRaw }] = await Promise.all([
+    const [{ data: loansRaw }, { data: savingsRaw }, { data: assetsRaw }] = await Promise.all([
       supabase.from("loans").select("*").order("created_at"),
-      supabase
-        .from("budget_categories")
-        .select("id, budget_items(id, name, starting_balance, monthly_default)")
-        .eq("type", "savings")
-        .maybeSingle(),
+      supabase.from("savings_accounts").select("*").order("created_at"),
       supabase.from("assets").select("id, name, type, estimated_value").order("name"),
     ]);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const savingsItems = ((savingsCat?.budget_items ?? []) as any[]).map((item) => ({
-      id: item.id as string,
-      name: item.name as string,
-      starting_balance: (item.starting_balance ?? 0) as number,
-      monthly_default: (item.monthly_default ?? 0) as number,
-    }));
 
     content = (
       <InnsiktView
         loans={(loansRaw ?? []) as InnsiktLoan[]}
-        savingsItems={savingsItems}
+        savingsItems={(savingsRaw ?? []) as { id: string; name: string; balance: number; monthly_amount: number }[]}
         assets={(assetsRaw ?? []) as { id: string; name: string; type: string; estimated_value: number | null }[]}
         embedded
       />

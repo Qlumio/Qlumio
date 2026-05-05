@@ -20,8 +20,8 @@ export type InnsiktLoan = {
 export type InnsiktSavingsItem = {
   id: string;
   name: string;
-  starting_balance: number;
-  monthly_default: number;
+  balance: number;
+  monthly_amount: number;
 };
 
 export type InnsiktAsset = {
@@ -276,13 +276,13 @@ function SavingsCard({ item }: { item: InnsiktSavingsItem }) {
 
   const now = new Date();
   const projection = Array.from({ length: 12 }, (_, i) => {
-    const bal = item.starting_balance + (i + 1) * item.monthly_default;
+    const bal = item.balance + (i + 1) * item.monthly_amount;
     const d = new Date(now.getFullYear(), now.getMonth() + i);
     return { idx: i, monthLabel: MONTH_NAMES[d.getMonth()], year: d.getFullYear(), balance: bal };
   });
 
-  const endBalance = item.starting_balance + 12 * item.monthly_default;
-  const growth = endBalance - item.starting_balance;
+  const endBalance = item.balance + 12 * item.monthly_amount;
+  const growth = endBalance - item.balance;
 
   return (
     <div className="bg-white rounded-xl overflow-hidden">
@@ -292,13 +292,13 @@ function SavingsCard({ item }: { item: InnsiktSavingsItem }) {
           <div className="bg-gray-50 rounded-lg p-2.5 text-center">
             <div className="text-xs text-gray-400 mb-0.5">Nåværende saldo</div>
             <div className="text-sm font-bold text-gray-900">
-              {item.starting_balance === 0 ? "–" : (item.starting_balance / 1000).toFixed(0) + "k"}
+              {item.balance === 0 ? "–" : (item.balance / 1000).toFixed(0) + "k"}
             </div>
           </div>
           <div className="bg-gray-50 rounded-lg p-2.5 text-center">
             <div className="text-xs text-gray-400 mb-0.5">Per måned</div>
             <div className="text-sm font-bold text-green-600">
-              {item.monthly_default === 0 ? "–" : "+" + (item.monthly_default / 1000).toFixed(1) + "k"}
+              {item.monthly_amount === 0 ? "–" : "+" + (item.monthly_amount / 1000).toFixed(1) + "k"}
             </div>
           </div>
           <div className="bg-emerald-50 rounded-lg p-2.5 text-center">
@@ -314,7 +314,7 @@ function SavingsCard({ item }: { item: InnsiktSavingsItem }) {
             <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
               <div
                 className="h-full bg-emerald-400 rounded-full transition-all"
-                style={{ width: item.starting_balance > 0 ? `${Math.min(100, (endBalance / item.starting_balance) * 50)}%` : "40%" }}
+                style={{ width: item.balance > 0 ? `${Math.min(100, (endBalance / item.balance) * 50)}%` : "40%" }}
               />
             </div>
             <span className="text-xs text-emerald-600 font-medium">+{fmtKr(growth)} / år</span>
@@ -345,7 +345,7 @@ function SavingsCard({ item }: { item: InnsiktSavingsItem }) {
                 {projection.map((row) => (
                   <tr key={row.idx} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="px-4 py-1.5 text-gray-600">{row.monthLabel} {row.year !== new Date().getFullYear() ? row.year : ""}</td>
-                    <td className="text-right px-3 py-1.5 text-green-600">+{item.monthly_default.toLocaleString("nb-NO")}</td>
+                    <td className="text-right px-3 py-1.5 text-green-600">+{item.monthly_amount.toLocaleString("nb-NO")}</td>
                     <td className="text-right px-4 py-1.5 text-gray-700 font-medium">{row.balance.toLocaleString("nb-NO")}</td>
                   </tr>
                 ))}
@@ -370,7 +370,7 @@ export default function InnsiktView({ loans, savingsItems, assets = [], embedded
     (l) => l.remaining_debt != null && l.interest_rate != null && l.monthly_payment != null
   );
   const totalDebt = loans.reduce((s, l) => s + (l.remaining_debt ?? 0), 0);
-  const totalSavings = savingsItems.reduce((s, i) => s + i.starting_balance, 0);
+  const totalSavings = savingsItems.reduce((s, i) => s + i.balance, 0);
   const totalAssetValue = assets.reduce((s, a) => s + (a.estimated_value ?? 0), 0);
   const assetsWithValue = assets.filter((a) => a.estimated_value != null);
   const netWorth = totalSavings + totalAssetValue - totalDebt;
