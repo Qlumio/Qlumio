@@ -1,26 +1,80 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useEffect, useMemo } from "react";
 import { useUser } from "@/lib/userContext";
 import ProfileSelector from "@/components/ProfileSelector";
 import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
 
-// ─── Modul-konfigurasjon ───────────────────────────────────────────────────
+// ─── Konstanter ───────────────────────────────────────────────────────────────
+
+const FEED_SEEN_KEY = "qlumio_feed_seen";
 
 const ALL_MODULES = [
   { href: "/aktiviteter", title: "Aktiviteter", icon: "📅", roles: ["admin", "member"], description: "Ukentlig oversikt over familiens avtaler" },
-  { href: "/oppgaver", title: "Gjøremål", icon: "✅", roles: ["admin", "member"], description: "Gjøremål og praktiske ting som må gjøres" },
-  { href: "/innkjop", title: "Innkjøp", icon: "🛒", roles: ["admin", "member"], description: "Handlelister og planlagte kjøp" },
-  { href: "/eiendeler", title: "Eiendeler", icon: "🔧", roles: ["admin"], description: "Det vi eier og hva det krever å holde det i gang" },
-  { href: "/okonomi", title: "Økonomi", icon: "💰", roles: ["admin"], description: "Oversikt over inntekter, utgifter og fremtidige kostnader" },
-  { href: "/innstillinger", title: "Innstillinger", icon: "⚙️", roles: ["admin"], description: "" },
+  { href: "/oppgaver",    title: "Gjøremål",    icon: "✅", roles: ["admin", "member"], description: "Gjøremål og praktiske ting som må gjøres" },
+  { href: "/innkjop",     title: "Innkjøp",     icon: "🛒", roles: ["admin", "member"], description: "Handlelister og planlagte kjøp" },
+  { href: "/eiendeler",   title: "Eiendeler",   icon: "🔧", roles: ["admin"],           description: "Det vi eier og hva det krever å holde det i gang" },
+  { href: "/okonomi",     title: "Økonomi",     icon: "💰", roles: ["admin"],           description: "Oversikt over inntekter, utgifter og fremtidige kostnader" },
+  { href: "/innstillinger", title: "Innstillinger", icon: "⚙️", roles: ["admin"],       description: "" },
 ];
 
-// ─── Hjelpefunksjoner ──────────────────────────────────────────────────────
+// ─── Mini-typer for feed ──────────────────────────────────────────────────────
 
+type PlannedExpenseItem = {
+  id: string;
+  title: string;
+  amount: number;
+  date: string;
+  category: string;
+};
+
+type MaintenanceItem = {
+  id: string;
+  title: string;
+  due_date: string;
+  asset_name: string;
+};
+
+type FeedUrgency = "overdue" | "today" | "upcoming";
+
+type FeedItem = {
+  id: string;
+  type: "event" | "task" | "expense" | "maintenance";
+  urgency: FeedUrgency;
+  title: string;
+  subtitle: string;
+  href: string;
+  date: string;
+};
+
+// ─── Props ────────────────────────────────────────────────────────────────────
+
+type Props = {
+  members: FamilyMember[];
+  events: Event[];
+  exceptions: EventException[];
+  tasks: Task[];
+  plannedExpenses: PlannedExpenseItem[];
+  maintenanceTasks: MaintenanceItem[];
+  todayStr: string;
+};
+
+// ─── Hjelpefunksjoner ─────────────────────────────────────────────────────────
 
 function formatDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function formatDisplayDate(dateStr: string): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("nb-NO", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+function formatAmount(n: number): string {
+  return n.toLocaleString("nb-NO") + " kr";
 }
 
 function getGreeting(name: string): string {
@@ -36,15 +90,12 @@ function getEventsForDate(
   events: Event[],
   exceptions: EventException[],
   dateStr: string,
-  memberId: string | null // null = alle
+  memberId: string | null
 ): Event[] {
   const cellDate = new Date(dateStr + "T00:00:00");
   return events.filter((e) => {
-    // Filtrer på deltaker eller ansvarlig
     if (memberId) {
-      const isParticipant = e.participant_ids.includes(memberId);
-      const isResponsible = e.responsible_member_id === memberId;
-      if (!isParticipant && !isResponsible) return false;
+      if (!e.participant_ids.includes(memberId) && e.responsible_member_id !== memberId) return false;
     }
     if (!e.recurring) {
       const start = new Date(e.date + "T00:00:00");
@@ -57,26 +108,240 @@ function getEventsForDate(
   });
 }
 
-// ─── Props ─────────────────────────────────────────────────────────────────
+function urgencyBadgeLabel(urgency: FeedUrgency, date: string, todayStr: string): string {
+  if (urgency === "overdue") return "Forfalt";
+  if (urgency === "today")   return "I dag";
+  const diff = Math.round(
+    (new Date(date + "T00:00:00").getTime() - new Date(todayStr + "T00:00:00").getTime()) / 86_400_000
+  );
+  if (diff === 1) return "I morgen";
+  if (diff <= 3)  return `Om ${diff} dager`;
+  return "Nærmer seg";
+}
 
-type Props = {
-  members: FamilyMember[];
-  events: Event[];
-  exceptions: EventException[];
-  tasks: Task[];
-  todayStr: string;
+const TYPE_ICON: Record<FeedItem["type"], string> = {
+  event:       "📅",
+  task:        "✅",
+  expense:     "💸",
+  maintenance: "🔧",
 };
 
-// ─── Komponent ─────────────────────────────────────────────────────────────
+const BADGE_STYLE: Record<FeedUrgency, string> = {
+  overdue:  "text-red-500 bg-red-50",
+  today:    "text-blue-500 bg-blue-50",
+  upcoming: "text-amber-600 bg-amber-50",
+};
 
-export default function HomeView({ members, events, exceptions, tasks, todayStr }: Props) {
+const BORDER_STYLE: Record<FeedUrgency, string> = {
+  overdue:  "border-l-[3px] border-red-300",
+  today:    "border-l-[3px] border-blue-400",
+  upcoming: "border-l-[3px] border-amber-200",
+};
+
+// ─── Feed-bygging ─────────────────────────────────────────────────────────────
+
+function buildFeedCandidates(
+  events: Event[],
+  exceptions: EventException[],
+  tasks: Task[],
+  plannedExpenses: PlannedExpenseItem[],
+  maintenanceTasks: MaintenanceItem[],
+  todayStr: string,
+  userId: string,
+  isAdmin: boolean
+): FeedItem[] {
+  const todayMs = new Date(todayStr + "T00:00:00").getTime();
+  const addDays = (n: number) => formatDate(new Date(todayMs + n * 86_400_000));
+
+  const tomorrowStr     = addDays(1);
+  const twoDaysOutStr   = addDays(2);
+  const threeDaysOutStr = addDays(3);
+  const sevenDaysOutStr = addDays(7);
+
+  const items: FeedItem[] = [];
+
+  // ── Aktiviteter: i dag + i morgen ──────────────────────────────────────────
+  ([todayStr, tomorrowStr] as const).forEach((dateStr, idx) => {
+    getEventsForDate(events, exceptions, dateStr, userId).forEach((ev) => {
+      items.push({
+        id: ev.id,
+        type: "event",
+        urgency: idx === 0 ? "today" : "upcoming",
+        title: ev.title,
+        subtitle: ev.start_time
+          ? `kl. ${ev.start_time.slice(0, 5)}`
+          : idx === 0 ? "Aktivitet i dag" : "Aktivitet i morgen",
+        href: "/aktiviteter",
+        date: dateStr,
+      });
+    });
+  });
+
+  // ── Gjøremål: forsinket + innen 2 dager ───────────────────────────────────
+  tasks
+    .filter(
+      (t) =>
+        !t.completed &&
+        t.due_date !== null &&
+        (isAdmin || t.assigned_to === userId || t.assigned_to === null)
+    )
+    .forEach((t) => {
+      const d = t.due_date!;
+      if (d < todayStr) {
+        items.push({
+          id: t.id, type: "task", urgency: "overdue",
+          title: t.title,
+          subtitle: `Forfalt ${formatDisplayDate(d)}`,
+          href: "/oppgaver", date: d,
+        });
+      } else if (d === todayStr) {
+        items.push({
+          id: t.id, type: "task", urgency: "today",
+          title: t.title,
+          subtitle: "Gjøremål for i dag",
+          href: "/oppgaver", date: d,
+        });
+      } else if (d <= twoDaysOutStr) {
+        items.push({
+          id: t.id, type: "task", urgency: "upcoming",
+          title: t.title,
+          subtitle: `Kommer opp ${formatDisplayDate(d)}`,
+          href: "/oppgaver", date: d,
+        });
+      }
+    });
+
+  // ── Planlagte kostnader (kun admin): innen 3 dager ────────────────────────
+  if (isAdmin) {
+    plannedExpenses
+      .filter((e) => e.category !== "innkjop")
+      .forEach((e) => {
+        const d = e.date;
+        const amt = formatAmount(e.amount);
+        if (d < todayStr) {
+          items.push({
+            id: e.id, type: "expense", urgency: "overdue",
+            title: e.title,
+            subtitle: `${amt} – forfalt ${formatDisplayDate(d)}`,
+            href: "/okonomi?tab=planlagte", date: d,
+          });
+        } else if (d === todayStr) {
+          items.push({
+            id: e.id, type: "expense", urgency: "today",
+            title: e.title,
+            subtitle: `${amt} – forfaller i dag`,
+            href: "/okonomi?tab=planlagte", date: d,
+          });
+        } else if (d <= threeDaysOutStr) {
+          items.push({
+            id: e.id, type: "expense", urgency: "upcoming",
+            title: e.title,
+            subtitle: `${amt} – nærmer seg`,
+            href: "/okonomi?tab=planlagte", date: d,
+          });
+        }
+      });
+  }
+
+  // ── Vedlikehold på eiendeler (kun admin): innen 7 dager ───────────────────
+  if (isAdmin) {
+    maintenanceTasks.forEach((m) => {
+      const d = m.due_date;
+      if (d < todayStr) {
+        items.push({
+          id: m.id, type: "maintenance", urgency: "overdue",
+          title: m.title,
+          subtitle: `${m.asset_name} – forfalt ${formatDisplayDate(d)}`,
+          href: "/eiendeler", date: d,
+        });
+      } else if (d === todayStr) {
+        items.push({
+          id: m.id, type: "maintenance", urgency: "today",
+          title: m.title,
+          subtitle: `${m.asset_name} – i dag`,
+          href: "/eiendeler", date: d,
+        });
+      } else if (d <= sevenDaysOutStr) {
+        items.push({
+          id: m.id, type: "maintenance", urgency: "upcoming",
+          title: m.title,
+          subtitle: `${m.asset_name} – forfaller snart`,
+          href: "/eiendeler", date: d,
+        });
+      }
+    });
+  }
+
+  // Sorter: forsinket (eldst) → i dag → kommende (nærmest)
+  const order: Record<FeedUrgency, number> = { overdue: 0, today: 1, upcoming: 2 };
+  items.sort((a, b) => {
+    const u = order[a.urgency] - order[b.urgency];
+    return u !== 0 ? u : a.date.localeCompare(b.date);
+  });
+
+  return items;
+}
+
+// ─── Komponent ────────────────────────────────────────────────────────────────
+
+export default function HomeView({
+  members,
+  events,
+  exceptions,
+  tasks,
+  plannedExpenses,
+  maintenanceTasks,
+  todayStr,
+}: Props) {
   const { currentUser, setCurrentUser, isLoaded } = useUser();
+  const [feedItems, setFeedItems] = useState<FeedItem[] | null>(null);
 
+  // Disse må stå før tidlige returer (Rules of Hooks)
+  const freshUser = currentUser
+    ? (members.find((m) => m.id === currentUser.id) ?? currentUser)
+    : null;
+  const isAdmin = freshUser?.permission_level === "admin";
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const allCandidates = useMemo((): FeedItem[] => {
+    if (!freshUser) return [];
+    return buildFeedCandidates(
+      events, exceptions, tasks, plannedExpenses, maintenanceTasks,
+      todayStr, freshUser.id, isAdmin
+    );
+  // freshUser?.id og isAdmin fanger nødvendige endringer uten ustabile referanser
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freshUser?.id, isAdmin, events, exceptions, tasks, plannedExpenses, maintenanceTasks, todayStr]);
+
+  // Filtrer mot localStorage – vis hvert element kun én gang per urgency-nivå
+  useEffect(() => {
+    if (!freshUser) return;
+
+    let seenMap: Record<string, string> = {};
+    try {
+      const raw = localStorage.getItem(FEED_SEEN_KEY);
+      seenMap = raw ? JSON.parse(raw) : {};
+    } catch { /* ignore */ }
+
+    const visible = allCandidates
+      .filter((item) => seenMap[`${item.id}_${item.type}`] !== item.urgency)
+      .slice(0, 5);
+
+    // Marker viste elementer som sett med gjeldende urgency
+    const updated = { ...seenMap };
+    visible.forEach((item) => {
+      updated[`${item.id}_${item.type}`] = item.urgency;
+    });
+    try { localStorage.setItem(FEED_SEEN_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
+
+    setFeedItems(visible);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allCandidates, freshUser?.id]);
+
+  // ── Tidlige returer (etter hooks) ─────────────────────────────────────────
   if (!isLoaded) return null;
-  if (!currentUser) return <ProfileSelector members={members} />;
+  if (!currentUser || !freshUser) return <ProfileSelector members={members} />;
 
-  const freshUser = members.find((m) => m.id === currentUser.id) ?? currentUser;
-  const isAdmin = freshUser.permission_level === "admin";
   const hasAnyAdmin = members.some((m) => m.permission_level === "admin");
   const showSettings = isAdmin || !hasAnyAdmin;
 
@@ -85,25 +350,11 @@ export default function HomeView({ members, events, exceptions, tasks, todayStr 
     return mod.roles.includes(freshUser.permission_level);
   });
 
-  const todayDate = new Date(todayStr + "T00:00:00");
-  const filterMemberId = freshUser.id;
-
-  // Oppgaver for denne brukeren
-  const myTasks = tasks.filter((t) => {
-    if (isAdmin) return true;
-    return t.assigned_to === freshUser.id || t.assigned_to === null;
-  });
-  const pendingTasks = myTasks.filter((t) => !t.completed);
-  const overdueTasks = pendingTasks.filter(
-    (t) => t.due_date && t.due_date < todayStr
+  const pendingTasks = tasks.filter(
+    (t) =>
+      !t.completed &&
+      (isAdmin || t.assigned_to === freshUser.id || t.assigned_to === null)
   );
-
-  // I dag/i morgen-events for kompakt snipp
-  const todayEvents = getEventsForDate(events, exceptions, todayStr, filterMemberId);
-  const tomorrowDate = new Date(todayDate);
-  tomorrowDate.setDate(todayDate.getDate() + 1);
-  const tomorrowStr = formatDate(tomorrowDate);
-  const tomorrowEvents = getEventsForDate(events, exceptions, tomorrowStr, filterMemberId);
 
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900">
@@ -130,60 +381,35 @@ export default function HomeView({ members, events, exceptions, tasks, todayStr 
           </button>
         </div>
 
-        {/* ── Kompakt i dag / i morgen + forfalt ── */}
-        {(todayEvents.length > 0 || tomorrowEvents.length > 0 || overdueTasks.length > 0) && (
+        {/* ── I dag-feed ── */}
+        {feedItems !== null && feedItems.length > 0 && (
           <div className="space-y-2 mb-5">
-            {overdueTasks.length > 0 && (
-              <Link href="/oppgaver" className="flex items-center gap-3 bg-red-50 px-4 py-3 rounded-xl hover:bg-red-100 transition-colors">
-                <span className="text-base">⚠️</span>
-                <span className="text-sm text-red-600 font-medium">
-                  {overdueTasks.length} forfalt{overdueTasks.length === 1 ? " oppgave" : "e oppgaver"}
+            {feedItems.map((item) => (
+              <Link
+                key={`${item.id}_${item.type}`}
+                href={item.href}
+                className={`flex items-center gap-3 bg-white px-4 py-3.5 rounded-xl hover:bg-gray-50 transition-colors ${BORDER_STYLE[item.urgency]}`}
+              >
+                <span className="text-lg flex-shrink-0">{TYPE_ICON[item.type]}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium text-gray-800 truncate">{item.title}</div>
+                  <div className="text-xs text-gray-400 mt-0.5 truncate">{item.subtitle}</div>
+                </div>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${BADGE_STYLE[item.urgency]}`}>
+                  {urgencyBadgeLabel(item.urgency, item.date, todayStr)}
                 </span>
-                <span className="ml-auto text-xs text-red-300">→</span>
               </Link>
-            )}
-            {todayEvents.length > 0 && (
-              <Link href="/aktiviteter" className="block bg-white px-4 py-4 rounded-xl hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold text-blue-500 uppercase tracking-widest">I dag</span>
-                  <span className="text-xs text-gray-300">→</span>
-                </div>
-                <div className="space-y-3">
-                  {todayEvents.map((ev) => (
-                    <div key={ev.id} className="flex items-baseline justify-between gap-3">
-                      <span className="text-sm font-medium text-gray-800">{ev.title}</span>
-                      {ev.start_time && <span className="text-sm text-gray-400 flex-shrink-0">{ev.start_time.slice(0, 5)}</span>}
-                    </div>
-                  ))}
-                </div>
-              </Link>
-            )}
-            {tomorrowEvents.length > 0 && (
-              <Link href="/aktiviteter" className="block bg-white px-4 py-4 rounded-xl hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">I morgen</span>
-                  <span className="text-xs text-gray-300">→</span>
-                </div>
-                <div className="space-y-3">
-                  {tomorrowEvents.map((ev) => (
-                    <div key={ev.id} className="flex items-baseline justify-between gap-3">
-                      <span className="text-sm font-medium text-gray-600">{ev.title}</span>
-                      {ev.start_time && <span className="text-sm text-gray-400 flex-shrink-0">{ev.start_time.slice(0, 5)}</span>}
-                    </div>
-                  ))}
-                </div>
-              </Link>
-            )}
+            ))}
           </div>
         )}
 
         {/* ── Moduler ── */}
         <div className="space-y-3">
           {visibleModules.filter((m) => m.href !== "/innstillinger").map((mod) => {
-            // Badge for oppgaver
-            const badge = mod.href === "/oppgaver" && pendingTasks.length > 0
-              ? pendingTasks.length
-              : null;
+            const badge =
+              mod.href === "/oppgaver" && pendingTasks.length > 0
+                ? pendingTasks.length
+                : null;
             return (
               <Link
                 key={mod.href}
@@ -192,7 +418,7 @@ export default function HomeView({ members, events, exceptions, tasks, todayStr 
               >
                 <div className="text-3xl flex-shrink-0">{mod.icon}</div>
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-gray-900 group-hover:text-gray-900">{mod.title}</div>
+                  <div className="font-semibold text-gray-900">{mod.title}</div>
                   <div className="text-sm text-gray-400 mt-0.5">{mod.description}</div>
                 </div>
                 {badge !== null && (
@@ -224,4 +450,3 @@ export default function HomeView({ members, events, exceptions, tasks, todayStr 
     </main>
   );
 }
-

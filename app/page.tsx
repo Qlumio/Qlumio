@@ -15,15 +15,17 @@ export default async function Home() {
   const today = new Date();
   const todayStr = formatDate(today);
 
-  // Hent 14 dager frem for dashboard
-  const twoWeeksOut = new Date(today);
-  twoWeeksOut.setDate(today.getDate() + 14);
-  const twoWeeksOutStr = formatDate(twoWeeksOut);
+  const addDays = (n: number) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() + n);
+    return formatDate(d);
+  };
 
-  // Hent 7 dager bak for å fange flerdagsevents som starter før i dag
-  const sevenDaysBack = new Date(today);
-  sevenDaysBack.setDate(today.getDate() - 7);
-  const sevenDaysBackStr = formatDate(sevenDaysBack);
+  const twoWeeksOutStr   = addDays(14);
+  const sevenDaysBackStr = addDays(-7);
+  const thirtyDaysBackStr = addDays(-30);
+  const threeDaysOutStr  = addDays(3);
+  const sevenDaysOutStr  = addDays(7);
 
   const [
     { data: members },
@@ -31,6 +33,8 @@ export default async function Home() {
     { data: recurringEventsRaw },
     { data: exceptions },
     { data: tasks },
+    { data: expensesRaw },
+    { data: maintenanceRaw },
   ] = await Promise.all([
     supabase.from("family_members").select("*").order("created_at"),
     supabase
@@ -49,6 +53,18 @@ export default async function Home() {
       .select("*")
       .order("due_date", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false }),
+    supabase
+      .from("planned_expenses")
+      .select("id, title, amount, date, category")
+      .gte("date", thirtyDaysBackStr)
+      .lte("date", threeDaysOutStr)
+      .order("date"),
+    supabase
+      .from("asset_tasks")
+      .select("id, title, due_date, assets(name)")
+      .gte("due_date", thirtyDaysBackStr)
+      .lte("due_date", sevenDaysOutStr)
+      .order("due_date"),
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -78,12 +94,22 @@ export default async function Home() {
     ...(recurringEventsRaw ?? []).map(normalizeEvent),
   ];
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const maintenanceTasks = (maintenanceRaw ?? []).map((t: any) => ({
+    id: t.id,
+    title: t.title,
+    due_date: t.due_date,
+    asset_name: (t.assets as { name: string } | null)?.name ?? "Ukjent eiendel",
+  }));
+
   return (
     <HomeView
       members={members ?? []}
       events={events}
       exceptions={(exceptions ?? []) as EventException[]}
       tasks={(tasks ?? []) as Task[]}
+      plannedExpenses={expensesRaw ?? []}
+      maintenanceTasks={maintenanceTasks}
       todayStr={todayStr}
     />
   );
