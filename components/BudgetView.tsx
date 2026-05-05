@@ -745,21 +745,100 @@ export default function BudgetView({
                         <td className={`text-right px-2 py-2.5 text-sm font-bold ${getRestAnnual() >= 0 ? "text-green-600" : "text-red-500"}`}>{fmt(getRestAnnual())}</td>
                       </tr>
 
-                      {/* Anbefalt avsetning */}
-                      {rec > 0 && (
-                        <tr className="bg-blue-50/60 border-t border-blue-100">
-                          <td className="sticky left-0 bg-blue-50/60 px-4 py-2">
-                            <div className="text-sm font-semibold text-blue-700">📊 Anbefalt avsetning</div>
-                            <div className="text-xs text-blue-400 mt-0.5">Basert på forventede kostnader neste 12 mnd</div>
-                          </td>
-                          {monthCols.map((col) => (
-                            <td key={`rec-${col.year}-${col.month}`} className={`text-right px-2 py-2 text-sm font-semibold text-blue-600 ${col.isCurrent ? "bg-blue-100/80" : ""}`}>
-                              {rec.toLocaleString("nb-NO")}
-                            </td>
-                          ))}
-                          <td className="text-right px-2 py-2 text-sm font-semibold text-blue-600">{(rec * 12).toLocaleString("nb-NO")}</td>
-                        </tr>
-                      )}
+                      {/* Anbefalt avsetning — med likviditetsbegrensning */}
+                      {rec > 0 && (() => {
+                        // Beregn gap per måned: anbefalt vs. faktisk mulig (begrenset av resultat)
+                        const monthGaps = monthCols.map((col) => {
+                          const resultat = getRestMonth(col.year, col.month);
+                          const possible = Math.max(0, Math.min(resultat, rec));
+                          const gap = rec - possible;
+                          return { col, possible, gap, hasGap: gap > 0 };
+                        });
+                        const anyGap = monthGaps.some((g) => g.hasGap);
+
+                        // Inneværende måneds gap (for varselkort)
+                        const nowYear = new Date().getFullYear();
+                        const nowMonth = new Date().getMonth() + 1;
+                        const currentGap = monthGaps.find(
+                          (g) => g.col.year === nowYear && g.col.month === nowMonth
+                        );
+
+                        return (
+                          <>
+                            {/* Anbefalt avsetning (mål) */}
+                            <tr className="bg-blue-50/60 border-t border-blue-100">
+                              <td className="sticky left-0 bg-blue-50/60 px-4 py-2">
+                                <div className="text-sm font-semibold text-blue-700">📊 Anbefalt avsetning</div>
+                                <div className="text-xs text-blue-400 mt-0.5">Mål basert på fremtidige kostnader og buffer</div>
+                              </td>
+                              {monthCols.map((col) => (
+                                <td key={`rec-${col.year}-${col.month}`} className={`text-right px-2 py-2 text-sm font-semibold text-blue-600 ${col.isCurrent ? "bg-blue-100/80" : ""}`}>
+                                  {rec.toLocaleString("nb-NO")}
+                                </td>
+                              ))}
+                              <td className="text-right px-2 py-2 text-sm font-semibold text-blue-600">{(rec * 12).toLocaleString("nb-NO")}</td>
+                            </tr>
+
+                            {/* Faktisk mulig avsetning — vises kun hvis gap finnes */}
+                            {anyGap && (
+                              <tr className="border-t border-orange-100">
+                                <td className="sticky left-0 bg-orange-50/50 px-4 py-2">
+                                  <div className="text-sm font-semibold text-orange-700">⚠️ Faktisk mulig avsetning</div>
+                                  <div className="text-xs text-orange-400 mt-0.5">Begrenset av tilgjengelig overskudd</div>
+                                </td>
+                                {monthGaps.map(({ col, possible, gap, hasGap }) => (
+                                  <td key={`possible-${col.year}-${col.month}`} className={`text-right px-2 py-2 ${col.isCurrent ? "bg-orange-50" : ""}`}>
+                                    <div className={`text-sm font-semibold ${hasGap ? "text-orange-600" : "text-green-600"}`}>
+                                      {possible > 0 ? possible.toLocaleString("nb-NO") : "–"}
+                                    </div>
+                                    {hasGap && (
+                                      <div className="text-xs text-red-400 mt-0.5">
+                                        -{gap.toLocaleString("nb-NO")}
+                                      </div>
+                                    )}
+                                  </td>
+                                ))}
+                                <td className="text-right px-2 py-2 text-xs text-gray-400">–</td>
+                              </tr>
+                            )}
+
+                            {/* Varselkort for inneværende måned */}
+                            {currentGap && currentGap.hasGap && (
+                              <tr>
+                                <td colSpan={numCols} className="px-4 py-3">
+                                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                                    <div className="flex items-start gap-3">
+                                      <span className="text-lg flex-shrink-0">⚠️</span>
+                                      <div className="flex-1">
+                                        <div className="text-sm font-semibold text-orange-800 mb-2">
+                                          Budsjettet er ikke tilstrekkelig for anbefalt avsetning denne måneden
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-3">
+                                          <div className="bg-white rounded-lg p-2.5 text-center">
+                                            <div className="text-xs text-gray-400 mb-0.5">Anbefalt</div>
+                                            <div className="text-sm font-bold text-blue-600">{rec.toLocaleString("nb-NO")} kr</div>
+                                          </div>
+                                          <div className="bg-white rounded-lg p-2.5 text-center">
+                                            <div className="text-xs text-gray-400 mb-0.5">Faktisk mulig</div>
+                                            <div className="text-sm font-bold text-orange-600">{currentGap.possible.toLocaleString("nb-NO")} kr</div>
+                                          </div>
+                                          <div className="bg-red-50 rounded-lg p-2.5 text-center">
+                                            <div className="text-xs text-gray-400 mb-0.5">Mangler</div>
+                                            <div className="text-sm font-bold text-red-600">{currentGap.gap.toLocaleString("nb-NO")} kr</div>
+                                          </div>
+                                        </div>
+                                        <p className="text-xs text-orange-600 mt-2">
+                                          Avsetningssaldoen vil øke saktere enn anbefalt. Vurder å redusere utgifter eller øke inntekter.
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        );
+                      })()}
 
                     </>
                   );
@@ -778,7 +857,7 @@ export default function BudgetView({
                           <span className={`text-gray-400 text-xs transition-transform ${showBufferDetails ? "rotate-90" : ""}`}>▶</span>
                           <span className="text-sm font-bold text-gray-800">💰 Avsetningssaldo</span>
                           <span className="text-xs text-gray-400 font-normal">
-                            {bufferAccounts.map((a) => a.name).join(", ")}
+                            {bufferAccounts.map((a) => a.name).join(", ")} · faktisk mulig avsetning
                           </span>
                         </div>
                       </td>
