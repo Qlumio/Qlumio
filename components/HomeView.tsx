@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 import { useUser } from "@/lib/userContext";
-import ProfileSelector from "@/components/ProfileSelector";
 import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
 
 // ─── Konstanter ───────────────────────────────────────────────────────────────
@@ -16,7 +15,6 @@ const ALL_MODULES = [
   { href: "/innkjop",     title: "Innkjøp",     icon: "🛒", roles: ["admin", "member"], description: "Handlelister og planlagte kjøp" },
   { href: "/eiendeler",   title: "Eiendeler",   icon: "🔧", roles: ["admin"],           description: "Det vi eier og hva det krever å holde det i gang" },
   { href: "/okonomi",     title: "Økonomi",     icon: "💰", roles: ["admin"],           description: "Oversikt over inntekter, utgifter og fremtidige kostnader" },
-  { href: "/innstillinger", title: "Innstillinger", icon: "⚙️", roles: ["admin"],       description: "" },
 ];
 
 // ─── Mini-typer for feed ──────────────────────────────────────────────────────
@@ -293,7 +291,7 @@ export default function HomeView({
   maintenanceTasks,
   todayStr,
 }: Props) {
-  const { currentUser, setCurrentUser, isLoaded } = useUser();
+  const { currentUser, isLoaded } = useUser();
   const [feedItems, setFeedItems] = useState<FeedItem[] | null>(null);
 
   // Disse må stå før tidlige returer (Rules of Hooks)
@@ -340,16 +338,11 @@ export default function HomeView({
   }, [allCandidates, freshUser?.id]);
 
   // ── Tidlige returer (etter hooks) ─────────────────────────────────────────
-  if (!isLoaded) return null;
-  if (!currentUser || !freshUser) return <ProfileSelector members={members} />;
+  if (!isLoaded || !currentUser || !freshUser) return null;
 
-  const hasAnyAdmin = members.some((m) => m.permission_level === "admin");
-  const showSettings = isAdmin || !hasAnyAdmin;
-
-  const visibleModules = ALL_MODULES.filter((mod) => {
-    if (mod.href === "/innstillinger") return showSettings;
-    return mod.roles.includes(freshUser.permission_level);
-  });
+  const visibleModules = ALL_MODULES.filter((mod) =>
+    mod.roles.includes(freshUser.permission_level)
+  );
 
   const pendingTasks = tasks.filter(
     (t) =>
@@ -371,15 +364,15 @@ export default function HomeView({
               })}
             </p>
           </div>
-          <button
-            onClick={() => setCurrentUser(null)}
+          <Link
+            href="/innstillinger"
             className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white transition-colors"
-            title="Bytt bruker"
+            title="Innstillinger"
           >
             <div className={`w-8 h-8 rounded-full ${freshUser.color} flex items-center justify-center text-white text-sm font-bold`}>
               {freshUser.name[0].toUpperCase()}
             </div>
-          </button>
+          </Link>
         </div>
 
         {/* ── I dag-feed ── */}
@@ -406,7 +399,7 @@ export default function HomeView({
 
         {/* ── Moduler ── */}
         <div className="space-y-3">
-          {visibleModules.filter((m) => m.href !== "/innstillinger").map((mod) => {
+          {visibleModules.map((mod) => {
             const badge =
               mod.href === "/oppgaver" && pendingTasks.length > 0
                 ? pendingTasks.length
@@ -433,18 +426,6 @@ export default function HomeView({
               </Link>
             );
           })}
-          {showSettings && (
-            <Link
-              href="/innstillinger"
-              className="flex items-center gap-4 p-4 bg-white hover:bg-gray-100 rounded-xl transition-colors group"
-            >
-              <div className="text-2xl flex-shrink-0">⚙️</div>
-              <div className="flex-1 font-medium text-gray-600 group-hover:text-gray-900">Innstillinger</div>
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-300 group-hover:text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          )}
         </div>
 
       </div>
