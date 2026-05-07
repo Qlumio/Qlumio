@@ -150,6 +150,18 @@ export default function WeekGrid({ members, events, exceptions, tasks, currentMo
   const [activeEvent, setActiveEvent] = useState<ActiveEvent>(null);
   const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null);
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
+  const [hiddenMemberIds, setHiddenMemberIds] = useState<Set<string>>(new Set());
+
+  const toggleMember = (id: string) => {
+    setHiddenMemberIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const visibleMembers = members.filter((m) => !hiddenMemberIds.has(m.id));
 
   // Oppgaver for et gitt familiemedlem på en gitt dato
   const getTasksForCell = (memberId: string, dateStr: string): Task[] =>
@@ -404,6 +416,28 @@ export default function WeekGrid({ members, events, exceptions, tasks, currentMo
             </div>
           </div>
 
+          {/* Personfilter */}
+          {!focusedMemberId && members.length > 1 && (
+            <div className="flex flex-wrap gap-2 px-4 pb-3">
+              {members.map((m) => {
+                const hidden = hiddenMemberIds.has(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => toggleMember(m.id)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-medium transition-all ${
+                      hidden
+                        ? "bg-gray-100 text-gray-400 line-through"
+                        : `${m.color} text-white`
+                    }`}
+                  >
+                    {m.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Ukesvisning */}
           <div className="overflow-x-auto">
             <div className="min-w-[700px]">
@@ -429,7 +463,7 @@ export default function WeekGrid({ members, events, exceptions, tasks, currentMo
                   </div>
 
                   {/* Rad per familiemedlem */}
-                  {members.map((member) => (
+                  {visibleMembers.map((member) => (
                     <div key={member.id} className="grid grid-cols-[150px_repeat(7,1fr)] gap-2 mb-2">
                       <button
                         onClick={() => setFocusedMemberId(member.id)}

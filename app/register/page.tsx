@@ -6,9 +6,14 @@ import Link from "next/link";
 import { supabase, setAuthCookies } from "@/lib/supabase/client";
 
 const ROLES = [
-  { value: "parent", label: "Forelder" },
-  { value: "grandparent", label: "Besteforelder" },
-  { value: "other", label: "Annet" },
+  { value: "parent",      label: "Forelder" },
+  { value: "child",       label: "Barn" },
+  { value: "grandmother", label: "Bestemor" },
+  { value: "grandfather", label: "Bestefar" },
+  { value: "uncle",       label: "Onkel" },
+  { value: "aunt",        label: "Tante" },
+  { value: "trusted",     label: "Tillitsperson" },
+  { value: "other",       label: "Annet" },
 ];
 
 export default function RegisterPage() {
