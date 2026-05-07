@@ -16,6 +16,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Qlumio",
   description: "Family operating system",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Qlumio",
+  },
+  icons: {
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
