@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 import { useUser } from "@/lib/userContext";
 import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
+import OnboardingCard from "@/components/OnboardingCard";
 
 // ─── Konstanter ───────────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ type Props = {
   plannedExpenses: PlannedExpenseItem[];
   maintenanceTasks: MaintenanceItem[];
   todayStr: string;
+  onboardingCounts: { memberCount: number; eventCount: number; expenseCount: number };
 };
 
 // ─── Hjelpefunksjoner ─────────────────────────────────────────────────────────
@@ -290,6 +292,7 @@ export default function HomeView({
   plannedExpenses,
   maintenanceTasks,
   todayStr,
+  onboardingCounts,
 }: Props) {
   const { currentUser, isLoaded } = useUser();
   const [feedItems, setFeedItems] = useState<FeedItem[] | null>(null);
@@ -374,6 +377,15 @@ export default function HomeView({
             </div>
           </Link>
         </div>
+
+        {/* ── Onboarding ── */}
+        {isAdmin && (
+          <OnboardingCard
+            memberCount={onboardingCounts.memberCount}
+            eventCount={onboardingCounts.eventCount}
+            expenseCount={onboardingCounts.expenseCount}
+          />
+        )}
 
         {/* ── I dag-feed ── */}
         {feedItems !== null && feedItems.length > 0 && (

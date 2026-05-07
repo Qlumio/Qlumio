@@ -36,6 +36,8 @@ export default async function Home() {
     { data: tasks },
     { data: expensesRaw },
     { data: maintenanceRaw },
+    { count: totalEventCount },
+    { count: totalExpenseCount },
   ] = await Promise.all([
     supabase.from("family_members").select("*").order("created_at"),
     supabase
@@ -66,6 +68,8 @@ export default async function Home() {
       .gte("due_date", thirtyDaysBackStr)
       .lte("due_date", sevenDaysOutStr)
       .order("due_date"),
+    supabase.from("events").select("id", { count: "exact", head: true }),
+    supabase.from("planned_expenses").select("id", { count: "exact", head: true }).neq("category", "innkjop"),
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -112,6 +116,11 @@ export default async function Home() {
       plannedExpenses={expensesRaw ?? []}
       maintenanceTasks={maintenanceTasks}
       todayStr={todayStr}
+      onboardingCounts={{
+        memberCount:  members?.length ?? 0,
+        eventCount:   totalEventCount ?? 0,
+        expenseCount: totalExpenseCount ?? 0,
+      }}
     />
   );
 }
