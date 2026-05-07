@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { supabase } from "@/lib/supabase";
+import { createServerClient } from "@/lib/supabase/server";
 import HomeView from "@/components/HomeView";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
+  const supabase = await createServerClient();
   const today = new Date();
   const todayStr = formatDate(today);
 

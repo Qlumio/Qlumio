@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { createServerClient } from "@/lib/supabase/server";
 import AssetDetail from "@/components/AssetDetail";
 import { notFound } from "next/navigation";
 import type { Asset, AssetTask, FamilyMember } from "@/lib/types";
@@ -9,6 +9,7 @@ export default async function AssetPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const supabase = await createServerClient();
   const { id } = await params;
 
   const { data: asset } = await supabase

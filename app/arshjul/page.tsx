@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { supabase } from "@/lib/supabase";
+import { createServerClient } from "@/lib/supabase/server";
 import ArshjulView from "@/components/ArshjulView";
 import type { Metadata } from "next";
 import type { Event } from "@/lib/types";
@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default async function ArshjulPage() {
+  const supabase = await createServerClient();
   const year = new Date().getFullYear();
   const fromStr = `${year}-01-01`;
   const toStr = `${year}-12-31`;

@@ -1,6 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+/**
+ * @deprecated Bruk `@/lib/supabase/client` (browser) eller `@/lib/supabase/server` (server) i stedet.
+ * Denne filen beholdes for bakoverkompatibilitet med eksisterende klientkomponenter.
+ */
+export { supabase } from "@/lib/supabase/client";

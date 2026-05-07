@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { supabase } from "@/lib/supabase";
+import { createServerClient } from "@/lib/supabase/server";
 import WeekGrid from "@/components/WeekGrid";
 import { getMondayOfWeek, getWeekDates, formatDate } from "@/lib/dates";
 import type { Event, EventException, Task } from "@/lib/types";
@@ -14,6 +14,7 @@ export default async function AktiviteterPage({
 }: {
   searchParams: Promise<{ week?: string }>;
 }) {
+  const supabase = await createServerClient();
   const { week } = await searchParams;
   const monday = week
     ? new Date(week + "T00:00:00")

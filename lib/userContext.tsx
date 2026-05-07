@@ -1,52 +1,121 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from "react";
+import type { User } from "@supabase/supabase-js";
+import { supabase, setAuthCookies, clearAuthCookies } from "@/lib/supabase/client";
 import type { FamilyMember } from "./types";
 
-type UserContextType = {
-  currentUser: FamilyMember | null;
-  setCurrentUser: (member: FamilyMember | null) => void;
+// ─── Context type ─────────────────────────────────────────────────────────────
+
+type AuthContextType = {
+  /** Supabase Auth-bruker */
+  user: User | null;
+  /** Familiemedlems-profilen koblet til brukeren */
+  familyMember: FamilyMember | null;
+  /** UUID til familien – brukes for inserts i klientkode */
+  familyId: string | null;
+  /** true når initial auth-sjekk er ferdig */
   isLoaded: boolean;
+  /** Logger ut og rydder cookies */
+  signOut: () => Promise<void>;
+
+  // Bakoverkompatibilitet
+  currentUser: FamilyMember | null;
+  setCurrentUser: (m: FamilyMember | null) => void;
 };
 
-const UserContext = createContext<UserContextType>({
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  familyMember: null,
+  familyId: null,
+  isLoaded: false,
+  signOut: async () => {},
   currentUser: null,
   setCurrentUser: () => {},
-  isLoaded: false,
 });
 
+// ─── Provider ─────────────────────────────────────────────────────────────────
+
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [currentUser, setCurrentUserState] = useState<FamilyMember | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [user, setUser]                   = useState<User | null>(null);
+  const [familyMember, setFamilyMember]   = useState<FamilyMember | null>(null);
+  const [familyId, setFamilyId]           = useState<string | null>(null);
+  const [isLoaded, setIsLoaded]           = useState(false);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
+  const loadMemberData = useCallback(
+    async (authUser: User, accessToken: string, refreshToken: string) => {
+      setAuthCookies(accessToken, refreshToken);
+
+      const { data: member } = await supabase
+        .from("family_members")
+        .select("*")
+        .eq("user_id", authUser.id)
+        .single();
+
+      setFamilyMember((member as FamilyMember) ?? null);
+      setFamilyId((member as FamilyMember | null)?.family_id ?? null);
+    },
+    []
+  );
+
   useEffect(() => {
-    const stored = localStorage.getItem("qlumio_current_user");
-    if (stored) {
-      try {
-        setCurrentUserState(JSON.parse(stored));
-      } catch {
-        localStorage.removeItem("qlumio_current_user");
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        await loadMemberData(session.user, session.access_token, session.refresh_token);
       }
-    }
-    setIsLoaded(true);
-  }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
+      setIsLoaded(true);
+    });
 
-  const setCurrentUser = (member: FamilyMember | null) => {
-    setCurrentUserState(member);
-    if (member) {
-      localStorage.setItem("qlumio_current_user", JSON.stringify(member));
-    } else {
-      localStorage.removeItem("qlumio_current_user");
-    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          setUser(session.user);
+          await loadMemberData(session.user, session.access_token, session.refresh_token);
+        } else {
+          setUser(null);
+          setFamilyMember(null);
+          setFamilyId(null);
+          clearAuthCookies();
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    clearAuthCookies();
+    window.location.href = "/login";
   };
 
   return (
-    <UserContext.Provider value={{ currentUser, setCurrentUser, isLoaded }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        familyMember,
+        familyId,
+        isLoaded,
+        signOut,
+        currentUser: familyMember,
+        setCurrentUser: setFamilyMember,
+      }}
+    >
       {children}
-    </UserContext.Provider>
+    </AuthContext.Provider>
   );
 }
 
-export const useUser = () => useContext(UserContext);
+// ─── Hooks ────────────────────────────────────────────────────────────────────
+
+export const useUser = () => useContext(AuthContext);
+export const useAuth = () => useContext(AuthContext);

@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { supabase } from "@/lib/supabase";
+import { createServerClient } from "@/lib/supabase/server";
 import BudgetView from "@/components/BudgetView";
 import PlannedExpensesView from "@/components/PlannedExpensesView";
 import LFPView from "@/components/LFPView";
@@ -19,6 +19,7 @@ export default async function OkonomiPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
+  const supabase = await createServerClient();
   const { tab = "budsjett" } = await searchParams;
 
   let content: React.ReactNode;

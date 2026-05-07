@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { supabase } from "@/lib/supabase";
+import { createServerClient } from "@/lib/supabase/server";
 import InnkjopView from "@/components/InnkjopView";
 import type { Metadata } from "next";
 import type { ShoppingItem } from "@/lib/types";
@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default async function InnkjopPage() {
+  const supabase = await createServerClient();
   const [{ data: shoppingItems }, { data: purchases }] = await Promise.all([
     supabase.from("shopping_items").select("*").order("created_at"),
     supabase

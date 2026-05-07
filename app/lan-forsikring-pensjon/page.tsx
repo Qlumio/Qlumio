@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { supabase } from "@/lib/supabase";
+import { createServerClient } from "@/lib/supabase/server";
 import LFPView from "@/components/LFPView";
 import type { Metadata } from "next";
 
@@ -8,6 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function LFPPage() {
+  const supabase = await createServerClient();
   const [{ data: insurances }, { data: loans }, { data: pensions }] = await Promise.all([
     supabase.from("insurances").select("*").order("created_at"),
     supabase.from("loans").select("*").order("created_at"),

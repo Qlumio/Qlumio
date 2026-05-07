@@ -1,3 +1,25 @@
+// ─── Auth & Familie ──────────────────────────────────────────────────────────
+
+export type Family = {
+  id: string;
+  name: string;
+  created_at: string;
+};
+
+export type InviteCode = {
+  id: string;
+  family_id: string;
+  code: string;
+  created_by: string | null;
+  expires_at: string | null;
+  max_uses: number;
+  used_count: number;
+  active: boolean;
+  created_at: string;
+};
+
+// ─── Data-typer ───────────────────────────────────────────────────────────────
+
 export type Asset = {
   id: string;
   name: string;
@@ -24,13 +46,15 @@ export type AssetTask = {
 
 export type FamilyMember = {
   id: string;
+  user_id: string | null;      // Supabase Auth user UUID
+  family_id: string | null;    // UUID til familien
   name: string;
   role: string;
   color: string;
   birth_date: string | null;
   phone: string | null;
   email: string | null;
-  permission_level: string; // "admin" | "member"
+  permission_level: string;    // "owner" | "admin" | "member"
   pin: string | null;
   created_at: string;
 };

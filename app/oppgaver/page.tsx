@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { Suspense } from "react";
-import { supabase } from "@/lib/supabase";
+import { createServerClient } from "@/lib/supabase/server";
 import OppgaverView from "@/components/OppgaverView";
 import type { Metadata } from "next";
 
@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default async function OppgaverPage() {
+  const supabase = await createServerClient();
   const [{ data: tasks }, { data: members }] = await Promise.all([
     supabase
       .from("tasks")

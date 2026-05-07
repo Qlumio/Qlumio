@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { supabase } from "@/lib/supabase";
+import { createServerClient } from "@/lib/supabase/server";
 import AssetList from "@/components/AssetList";
 import type { Metadata } from "next";
 import type { Asset } from "@/lib/types";
@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default async function EiendelerPage() {
+  const supabase = await createServerClient();
   const { data: assets } = await supabase
     .from("assets")
     .select("*")
