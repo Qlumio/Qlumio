@@ -19,12 +19,43 @@ type Props = {
   initialPurchases: Purchase[];
 };
 
+const MONTH_NAMES = [
+  "Januar", "Februar", "Mars", "April", "Mai", "Juni",
+  "Juli", "August", "September", "Oktober", "November", "Desember",
+];
+
 function formatAmount(n: number) {
   return n.toLocaleString("nb-NO") + " kr";
 }
-function formatDate(s: string) {
-  const d = new Date(s + "T00:00:00");
-  return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
+
+function dateToMonthKey(dateStr: string): string {
+  return dateStr.substring(0, 7);
+}
+
+function monthKeyToDate(monthKey: string): string {
+  return monthKey + "-01";
+}
+
+function formatMonthKey(monthKey: string): string {
+  const [year, month] = monthKey.split("-");
+  return `${MONTH_NAMES[parseInt(month) - 1]} ${year}`;
+}
+
+function generateMonthKeys(count = 12): string[] {
+  const now = new Date();
+  const keys: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    keys.push(`${y}-${m}`);
+  }
+  return keys;
+}
+
+function getCurrentMonthKey(): string {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`;
 }
 
 export default function InnkjopView({ initialShoppingItems, initialPurchases }: Props) {
@@ -69,9 +100,9 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases }: 
   }
 
   async function toggleItem(item: ShoppingItem) {
-    const checked = !item.checked;
-    await supabase.from("shopping_items").update({ checked, checked_at: checked ? new Date().toISOString() : null }).eq("id", item.id);
-    setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, checked, checked_at: checked ? new Date().toISOString() : null } : i));
+    const isChecked = !item.checked;
+    await supabase.from("shopping_items").update({ checked: isChecked, checked_at: isChecked ? new Date().toISOString() : null }).eq("id", item.id);
+    setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, checked: isChecked, checked_at: isChecked ? new Date().toISOString() : null } : i));
   }
 
   async function deleteItem(id: string) {
@@ -91,18 +122,24 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases }: 
   const [showModal, setShowModal] = useState(false);
   const [pTitle, setPTitle] = useState("");
   const [pAmount, setPAmount] = useState("");
-  const [pDate, setPDate] = useState("");
+  const [pMonth, setPMonth] = useState(""); // "YYYY-MM"
   const [pNotes, setPNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverMonth, setDragOverMonth] = useState<string | null>(null);
 
-  const resetPurchaseForm = () => { setPTitle(""); setPAmount(""); setPDate(""); setPNotes(""); };
+  const monthKeys = generateMonthKeys(12);
+  const currentMonthKey = getCurrentMonthKey();
+
+  const resetPurchaseForm = () => { setPTitle(""); setPAmount(""); setPMonth(""); setPNotes(""); };
 
   async function savePurchase() {
-    if (!pTitle.trim() || !pAmount || !pDate) return;
+    if (!pTitle.trim() || !pAmount || !pMonth) return;
     setSaving(true);
+    const dateStr = monthKeyToDate(pMonth);
     const { data, error } = await supabase
       .from("planned_expenses")
-      .insert({ title: pTitle.trim(), amount: parseInt(pAmount), date: pDate, category: "innkjop", notes: pNotes.trim() || null })
+      .insert({ title: pTitle.trim(), amount: parseInt(pAmount), date: dateStr, category: "innkjop", notes: pNotes.trim() || null })
       .select()
       .single();
     setSaving(false);
@@ -118,58 +155,86 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases }: 
     setPurchases((prev) => prev.filter((p) => p.id !== id));
   }
 
-  const today = new Date(); today.setHours(0, 0, 0, 0);
+  async function movePurchase(id: string, toMonthKey: string) {
+    const newDate = monthKeyToDate(toMonthKey);
+    const { error } = await supabase.from("planned_expenses").update({ date: newDate }).eq("id", id);
+    if (!error) {
+      setPurchases((prev) =>
+        prev.map((p) => p.id === id ? { ...p, date: newDate } : p)
+            .sort((a, b) => a.date.localeCompare(b.date))
+      );
+    }
+  }
+
+  function handleDragStart(id: string) { setDraggedId(id); }
+  function handleDragEnd() { setDraggedId(null); setDragOverMonth(null); }
+  function handleDragOver(e: React.DragEvent, monthKey: string) {
+    e.preventDefault();
+    setDragOverMonth(monthKey);
+  }
+  function handleDrop(e: React.DragEvent, monthKey: string) {
+    e.preventDefault();
+    if (draggedId) { movePurchase(draggedId, monthKey); }
+    setDraggedId(null);
+    setDragOverMonth(null);
+  }
+
   const totalPurchases = purchases.reduce((s, p) => s + p.amount, 0);
 
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
-      <div className="max-w-lg mx-auto">
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.back()} className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-              Tilbake
-            </button>
-            <div className="w-px h-5 bg-gray-200" />
-            <h1 className="text-lg font-semibold">Innkjøp</h1>
+    <main className="min-h-screen bg-gray-50 text-gray-900">
+      <div className="p-6 pb-0">
+        <div className="max-w-lg mx-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <button onClick={() => router.back()} className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                Tilbake
+              </button>
+              <div className="w-px h-5 bg-gray-200" />
+              <h1 className="text-lg font-semibold">Innkjøp</h1>
+            </div>
+            {tab === "planlagte" && (
+              <button
+                onClick={() => setShowModal(true)}
+                className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Legg til
+              </button>
+            )}
           </div>
-          {tab === "planlagte" && (
+
+          {/* Faner */}
+          <div className="flex gap-2 mb-6 bg-white rounded-xl p-1">
             <button
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
+              onClick={() => setTab("dagligvare")}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "dagligvare" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Legg til
+              🛒 Dagligvare
             </button>
-          )}
+            <button
+              onClick={() => setTab("planlagte")}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "planlagte" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+            >
+              🎿 Planlagte kjøp
+              {purchases.length > 0 && (
+                <span className="ml-1.5 text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">{purchases.length}</span>
+              )}
+            </button>
+          </div>
         </div>
+      </div>
 
-        {/* Faner */}
-        <div className="flex gap-2 mb-6 bg-white rounded-xl p-1">
-          <button
-            onClick={() => setTab("dagligvare")}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "dagligvare" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
-          >
-            🛒 Dagligvare
-          </button>
-          <button
-            onClick={() => setTab("planlagte")}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "planlagte" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
-          >
-            🎿 Planlagte kjøp
-            {purchases.length > 0 && <span className="ml-1.5 text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">{purchases.length}</span>}
-          </button>
-        </div>
-
-        {/* ── DAGLIGVARE ── */}
-        {tab === "dagligvare" && (
-          <>
+      {/* ── DAGLIGVARE ── */}
+      {tab === "dagligvare" && (
+        <div className="px-6 pb-6">
+          <div className="max-w-lg mx-auto">
             <form onSubmit={addShoppingItem} className="flex gap-2 mb-5">
               <input
                 ref={inputRef}
@@ -236,95 +301,195 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases }: 
                 </div>
               </div>
             )}
-          </>
-        )}
+          </div>
+        </div>
+      )}
 
-        {/* ── PLANLAGTE KJØP ── */}
-        {tab === "planlagte" && (
-          <>
-            {purchases.length > 0 && (
-              <div className="bg-white rounded-xl p-4 mb-4 flex items-center justify-between">
+      {/* ── PLANLAGTE KJØP – Kanban-tavle ── */}
+      {tab === "planlagte" && (
+        <div className="pb-8">
+          {/* Summering */}
+          {purchases.length > 0 && (
+            <div className="px-6 mb-4">
+              <div className="max-w-lg mx-auto bg-white rounded-xl p-4 flex items-center justify-between">
                 <div>
                   <div className="text-xs text-gray-400 uppercase tracking-wide">Totalt planlagt</div>
                   <div className="text-xl font-bold mt-0.5">{formatAmount(totalPurchases)}</div>
                 </div>
                 <div className="text-xs text-gray-400">{purchases.length} innkjøp</div>
               </div>
-            )}
+            </div>
+          )}
 
-            {purchases.length === 0 && (
-              <div className="text-center py-14">
-                <p className="text-3xl mb-3">🎿</p>
-                <p className="text-gray-400 text-sm mb-3">Ingen planlagte innkjøp ennå.</p>
-                <button onClick={() => setShowModal(true)} className="text-blue-500 hover:text-blue-600 text-sm transition-colors">
-                  + Legg til første innkjøp
-                </button>
-              </div>
-            )}
+          {purchases.length === 0 && (
+            <div className="text-center py-8 px-6">
+              <p className="text-3xl mb-3">🎿</p>
+              <p className="text-gray-400 text-sm mb-3">Ingen planlagte innkjøp ennå.</p>
+              <button onClick={() => setShowModal(true)} className="text-blue-500 hover:text-blue-600 text-sm transition-colors">
+                + Legg til første innkjøp
+              </button>
+            </div>
+          )}
 
-            <div className="space-y-2">
-              {purchases.map((p) => {
-                const d = new Date(p.date + "T00:00:00");
-                const isPast = d < today;
+          {/* Kanban-tavle med horisontal scroll */}
+          <div className="overflow-x-auto">
+            <div className="flex gap-3 px-6 pb-2" style={{ minWidth: "max-content" }}>
+              {monthKeys.map((monthKey) => {
+                const monthPurchases = purchases.filter((p) => dateToMonthKey(p.date) === monthKey);
+                const isCurrentMonth = monthKey === currentMonthKey;
+                const isDragOver = dragOverMonth === monthKey;
+
                 return (
-                  <div key={p.id} className={`p-4 bg-white rounded-xl flex items-start gap-3 ${isPast ? "opacity-60" : ""}`}>
-                    <div className="text-2xl flex-shrink-0">🛍️</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm">{p.title}</div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-gray-400">{formatDate(p.date)}</span>
-                        {p.notes && <><span className="text-xs text-gray-300">·</span><span className="text-xs text-gray-400 truncate">{p.notes}</span></>}
+                  <div
+                    key={monthKey}
+                    className={`flex-shrink-0 w-52 rounded-2xl p-3 transition-colors ${
+                      isDragOver
+                        ? "bg-blue-100 ring-2 ring-blue-300"
+                        : isCurrentMonth
+                        ? "bg-blue-50"
+                        : "bg-white/70"
+                    }`}
+                    onDragOver={(e) => handleDragOver(e, monthKey)}
+                    onDrop={(e) => handleDrop(e, monthKey)}
+                    onDragLeave={() => { if (dragOverMonth === monthKey) setDragOverMonth(null); }}
+                  >
+                    {/* Kolonneheader */}
+                    <div className="mb-3 px-1">
+                      <div className={`text-sm font-semibold ${isCurrentMonth ? "text-blue-600" : "text-gray-700"}`}>
+                        {formatMonthKey(monthKey)}
+                        {isCurrentMonth && (
+                          <span className="ml-1.5 text-xs font-normal text-blue-400">nå</span>
+                        )}
                       </div>
+                      {monthPurchases.length > 0 && (
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          {formatAmount(monthPurchases.reduce((s, p) => s + p.amount, 0))}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                      <span className="font-semibold text-sm">{formatAmount(p.amount)}</span>
-                      <button onClick={() => deletePurchase(p.id, p.title)} className="text-gray-300 hover:text-red-400 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+
+                    {/* Kort */}
+                    <div className="space-y-2">
+                      {monthPurchases.map((p) => (
+                        <div
+                          key={p.id}
+                          draggable
+                          onDragStart={() => handleDragStart(p.id)}
+                          onDragEnd={handleDragEnd}
+                          className={`bg-white rounded-xl p-3 shadow-sm cursor-grab active:cursor-grabbing transition-opacity select-none ${
+                            draggedId === p.id ? "opacity-30" : "opacity-100"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-1 mb-1.5">
+                            <span className="text-sm font-medium leading-tight flex-1">{p.title}</span>
+                            <button
+                              onClick={() => deletePurchase(p.id, p.title)}
+                              className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                          <div className="text-sm font-semibold text-blue-600">{formatAmount(p.amount)}</div>
+                          {p.notes && (
+                            <div className="text-xs text-gray-400 mt-1 truncate">{p.notes}</div>
+                          )}
+                          {/* Mobilalternativ: dropdown for å flytte */}
+                          <select
+                            className="mt-2 w-full text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none md:hidden"
+                            value={monthKey}
+                            onChange={(e) => movePurchase(p.id, e.target.value)}
+                          >
+                            {monthKeys.map((mk) => (
+                              <option key={mk} value={mk}>{formatMonthKey(mk)}</option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
                     </div>
+
+                    {/* Tom dropsone */}
+                    {monthPurchases.length === 0 && (
+                      <div className={`h-14 rounded-xl border-2 border-dashed flex items-center justify-center transition-colors ${
+                        isDragOver ? "border-blue-300 bg-blue-50" : "border-gray-200"
+                      }`}>
+                        <span className="text-xs text-gray-300">Slipp her</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: nytt planlagt kjøp */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setShowModal(false); resetPurchaseForm(); }}>
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+          onClick={() => { setShowModal(false); resetPurchaseForm(); }}
+        >
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-semibold mb-4">Nytt planlagt innkjøp</h2>
             <div className="space-y-3 mb-5">
               <div>
                 <label className="text-xs text-gray-400 mb-1 block">Hva skal kjøpes?</label>
-                <input type="text" placeholder="F.eks. «Nye ski til Emma»" value={pTitle} onChange={(e) => setPTitle(e.target.value)} autoFocus
-                  className="w-full p-2.5 rounded-lg bg-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                <input
+                  type="text"
+                  placeholder="F.eks. «Nye ski til Emma»"
+                  value={pTitle}
+                  onChange={(e) => setPTitle(e.target.value)}
+                  autoFocus
+                  className="w-full p-2.5 rounded-lg bg-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900"
+                />
               </div>
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className="text-xs text-gray-400 mb-1 block">Planlagt dato</label>
-                  <input type="date" value={pDate} onChange={(e) => setPDate(e.target.value)}
-                    className="w-full p-2.5 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                  <label className="text-xs text-gray-400 mb-1 block">Måned</label>
+                  <input
+                    type="month"
+                    value={pMonth}
+                    onChange={(e) => setPMonth(e.target.value)}
+                    min={currentMonthKey}
+                    className="w-full p-2.5 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900"
+                  />
                 </div>
                 <div className="flex-1">
                   <label className="text-xs text-gray-400 mb-1 block">Estimert beløp (kr)</label>
-                  <input type="number" placeholder="F.eks. 4500" value={pAmount} onChange={(e) => setPAmount(e.target.value)}
-                    className="w-full p-2.5 rounded-lg bg-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                  <input
+                    type="number"
+                    placeholder="F.eks. 4500"
+                    value={pAmount}
+                    onChange={(e) => setPAmount(e.target.value)}
+                    className="w-full p-2.5 rounded-lg bg-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900"
+                  />
                 </div>
               </div>
               <div>
                 <label className="text-xs text-gray-400 mb-1 block">Notater (valgfritt)</label>
-                <input type="text" placeholder="F.eks. «Sjekk XXL-tilbud»" value={pNotes} onChange={(e) => setPNotes(e.target.value)}
-                  className="w-full p-2.5 rounded-lg bg-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                <input
+                  type="text"
+                  placeholder="F.eks. «Sjekk XXL-tilbud»"
+                  value={pNotes}
+                  onChange={(e) => setPNotes(e.target.value)}
+                  className="w-full p-2.5 rounded-lg bg-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900"
+                />
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => { setShowModal(false); resetPurchaseForm(); }} className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-sm">Avbryt</button>
-              <button onClick={savePurchase} disabled={!pTitle.trim() || !pAmount || !pDate || saving}
-                className="flex-1 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-40 transition-colors text-sm font-medium text-white">
+              <button
+                onClick={() => { setShowModal(false); resetPurchaseForm(); }}
+                className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-sm"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={savePurchase}
+                disabled={!pTitle.trim() || !pAmount || !pMonth || saving}
+                className="flex-1 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-40 transition-colors text-sm font-medium text-white"
+              >
                 {saving ? "Lagrer…" : "Lagre"}
               </button>
             </div>
