@@ -208,7 +208,8 @@ export default function InviteCodeManager({ initialCodes }: Props) {
 
         <div className="pt-3 border-t border-gray-100 text-xs text-gray-500">
           Del koden med familiemedlemmet. De går til{" "}
-          <span className="font-mono">qlumio.com/join</span> og skriver inn koden.
+          <span className="font-mono">{typeof window !== "undefined" ? window.location.origin : "qlumio.com"}/join</span>{" "}
+          og skriver inn koden.
         </div>
       </div>
     </section>
