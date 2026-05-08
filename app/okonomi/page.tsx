@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { createServerClient } from "@/lib/supabase/server";
 import BudgetView from "@/components/BudgetView";
-import PlannedExpensesView from "@/components/PlannedExpensesView";
+import InnkjopView from "@/components/InnkjopView";
 import LFPView from "@/components/LFPView";
 import LanView from "@/components/LanView";
 import InnsiktView, { type InnsiktLoan } from "@/components/InnsiktView";
@@ -101,28 +101,40 @@ export default async function OkonomiPage({
       />
     );
 
-  // ── Planlagte kostnader ───────────────────────────────────────────────────────
+  // ── Innkjøp (planlagte kjøp + vedlikehold) ───────────────────────────────────
   } else if (tab === "planlagte") {
-    const [{ data: expenses }, { data: maintenanceRaw }] = await Promise.all([
-      supabase.from("planned_expenses").select("*").order("date"),
+    const now = new Date();
+    const twelveMonthsOut = new Date(now.getFullYear(), now.getMonth() + 12, 1)
+      .toISOString()
+      .slice(0, 10);
+
+    const [{ data: purchases }, { data: maintenanceRaw }, { data: assets }] = await Promise.all([
+      supabase.from("planned_expenses").select("*").eq("category", "innkjop").order("date"),
       supabase
         .from("asset_tasks")
-        .select("id, title, due_date, estimated_cost, assets(name)")
-        .not("estimated_cost", "is", null)
-        .gt("estimated_cost", 0)
+        .select("id, title, due_date, assets(name)")
+        .lte("due_date", twelveMonthsOut)
         .order("due_date"),
+      supabase.from("assets").select("id, name").order("name"),
     ]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const maintenanceTasks = (maintenanceRaw ?? []).map((t: any) => ({
+    const normalizedMaintenance = (maintenanceRaw ?? []).map((t: any) => ({
       id: t.id,
       title: t.title,
       due_date: t.due_date,
-      estimated_cost: t.estimated_cost as number,
       asset_name: (t.assets as { name: string } | null)?.name ?? "Ukjent eiendel",
     }));
 
-    content = <PlannedExpensesView initialExpenses={expenses ?? []} maintenanceTasks={maintenanceTasks} embedded />;
+    content = (
+      <InnkjopView
+        initialShoppingItems={[]}
+        initialPurchases={purchases ?? []}
+        initialMaintenanceTasks={normalizedMaintenance}
+        initialAssets={(assets ?? []) as { id: string; name: string }[]}
+        embedded
+      />
+    );
 
   // ── Innsikt ───────────────────────────────────────────────────────────────────
   } else if (tab === "innsikt") {

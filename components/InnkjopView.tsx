@@ -33,6 +33,7 @@ type Props = {
   initialPurchases: Purchase[];
   initialMaintenanceTasks: MaintenanceTask[];
   initialAssets: Asset[];
+  embedded?: boolean;
 };
 
 const MONTH_NAMES = [
@@ -74,9 +75,9 @@ function getCurrentMonthKey(): string {
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export default function InnkjopView({ initialShoppingItems, initialPurchases, initialMaintenanceTasks, initialAssets }: Props) {
+export default function InnkjopView({ initialShoppingItems, initialPurchases, initialMaintenanceTasks, initialAssets, embedded = false }: Props) {
   const router = useRouter();
-  const [tab, setTab] = useState<"dagligvare" | "planlagte">("dagligvare");
+  const [tab, setTab] = useState<"dagligvare" | "planlagte">(embedded ? "planlagte" : "dagligvare");
 
   // --- Dagligvare ---
   const [items, setItems] = useState<ShoppingItem[]>(initialShoppingItems);
@@ -259,57 +260,74 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
   const totalItems = purchases.length + maintenanceTasks.length;
 
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="p-6 pb-0">
-        <div className="max-w-lg mx-auto">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <button onClick={() => router.back()} className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-                Tilbake
-              </button>
-              <div className="w-px h-5 bg-gray-200" />
-              <h1 className="text-lg font-semibold">Innkjøp</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <HomeButton />
-              {tab === "planlagte" && (
-                <button
-                  onClick={() => openModal()}
-                  className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
-                >
+    <main className={embedded ? "text-gray-900" : "min-h-screen bg-gray-50 text-gray-900"}>
+      {!embedded && (
+        <div className="p-6 pb-0">
+          <div className="max-w-lg mx-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <button onClick={() => router.back()} className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors text-sm px-2 py-1.5 rounded-lg hover:bg-white">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                   </svg>
-                  Legg til
+                  Tilbake
                 </button>
-              )}
+                <div className="w-px h-5 bg-gray-200" />
+                <h1 className="text-lg font-semibold">Innkjøp</h1>
+              </div>
+              <div className="flex items-center gap-2">
+                <HomeButton />
+                {tab === "planlagte" && (
+                  <button
+                    onClick={() => openModal()}
+                    className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Legg til
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Faner */}
-          <div className="flex gap-2 mb-6 bg-white rounded-xl p-1">
-            <button
-              onClick={() => setTab("dagligvare")}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "dagligvare" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
-            >
-              🛒 Dagligvare
-            </button>
-            <button
-              onClick={() => setTab("planlagte")}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "planlagte" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
-            >
-              🎿 Planlagte kjøp
-              {purchases.length > 0 && (
-                <span className="ml-1.5 text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">{purchases.length}</span>
-              )}
-            </button>
+            {/* Faner */}
+            <div className="flex gap-2 mb-6 bg-white rounded-xl p-1">
+              <button
+                onClick={() => setTab("dagligvare")}
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "dagligvare" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                🛒 Dagligvare
+              </button>
+              <button
+                onClick={() => setTab("planlagte")}
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "planlagte" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                🎿 Planlagte kjøp
+                {purchases.length > 0 && (
+                  <span className="ml-1.5 text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">{purchases.length}</span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Legg til-knapp når embedded */}
+      {embedded && (
+        <div className="flex justify-end px-6 pt-4 pb-0">
+          <button
+            onClick={() => openModal()}
+            className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Legg til
+          </button>
+        </div>
+      )}
 
       {/* ── DAGLIGVARE ── */}
       {tab === "dagligvare" && (
