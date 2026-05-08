@@ -303,7 +303,7 @@ export default function HomeView({
   async function handleLogout() {
     await supabase.auth.signOut();
     clearAuthCookies();
-    router.push("/login");
+    window.location.href = "/login";
   }
 
   // Disse må stå før tidlige returer (Rules of Hooks)
