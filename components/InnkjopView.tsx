@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { ShoppingItem } from "@/lib/types";
 import HomeButton from "@/components/HomeButton";
+import { useUser } from "@/lib/userContext";
 
 type Purchase = {
   id: string;
@@ -77,12 +78,12 @@ function getCurrentMonthKey(): string {
 
 export default function InnkjopView({ initialShoppingItems, initialPurchases, initialMaintenanceTasks, initialAssets, embedded = false }: Props) {
   const router = useRouter();
+  const { currentUser } = useUser();
   const [tab, setTab] = useState<"dagligvare" | "planlagte">(embedded ? "planlagte" : "dagligvare");
 
   // --- Dagligvare ---
   const [items, setItems] = useState<ShoppingItem[]>(initialShoppingItems);
   const [newItemName, setNewItemName] = useState("");
-  const [addedBy, setAddedBy] = useState("");
   const [adding, setAdding] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -108,7 +109,7 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
     setAdding(true);
     const { data } = await supabase
       .from("shopping_items")
-      .insert({ name, added_by: addedBy.trim() || null })
+      .insert({ name, added_by: currentUser?.name ?? null })
       .select()
       .single();
     if (data) { setItems((prev) => [...prev, data as ShoppingItem]); setNewItemName(""); }
@@ -341,13 +342,6 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
                 className="flex-1 p-2.5 rounded-lg bg-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 text-sm border border-gray-200"
-              />
-              <input
-                type="text"
-                placeholder="Hvem?"
-                value={addedBy}
-                onChange={(e) => setAddedBy(e.target.value)}
-                className="w-24 p-2.5 rounded-lg bg-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 text-sm border border-gray-200"
               />
               <button type="submit" disabled={!newItemName.trim() || adding}
                 className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-40 transition-colors">
