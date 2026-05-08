@@ -17,9 +17,14 @@ type Props = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const MONTH_NAMES_SHORT = ["jan","feb","mar","apr","mai","jun","jul","aug","sep","okt","nov","des"];
+const MONTH_NAMES_FULL  = ["Januar","Februar","Mars","April","Mai","Juni","Juli","August","September","Oktober","November","Desember"];
+
 function formatDate(dateStr: string) {
   const d = new Date(dateStr + "T00:00:00");
-  return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
+  // Vis kun måned hvis datoen er den 1. (angitt som måned)
+  if (d.getDate() === 1) return `${MONTH_NAMES_FULL[d.getMonth()]} ${d.getFullYear()}`;
+  return `${d.getDate()}. ${MONTH_NAMES_SHORT[d.getMonth()]} ${d.getFullYear()}`;
 }
 function formatCost(cost: number) {
   return cost.toLocaleString("nb-NO") + " kr";
@@ -124,15 +129,29 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans, u
   const router = useRouter();
 
   // ── Oppgave-state ─────────────────────────────────────────────────────────────
+  const [localTasks, setLocalTasks] = useState<AssetTask[]>(tasks);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [dateMode, setDateMode] = useState<"month" | "date">("month");
   const [cost, setCost] = useState("");
   const [responsibleId, setResponsibleId] = useState("");
   const [recurring, setRecurring] = useState(false);
   const [recurringMonths, setRecurringMonths] = useState("12");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // ── Rediger oppgave ───────────────────────────────────────────────────────────
+  const [editingTask, setEditingTask] = useState<AssetTask | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDueDate, setEditDueDate] = useState("");
+  const [editDateMode, setEditDateMode] = useState<"month" | "date">("month");
+  const [editCost, setEditCost] = useState("");
+  const [editResponsibleId, setEditResponsibleId] = useState("");
+  const [editRecurring, setEditRecurring] = useState(false);
+  const [editRecurringMonths, setEditRecurringMonths] = useState("12");
+  const [editNotes, setEditNotes] = useState("");
+  const [editTaskSaving, setEditTaskSaving] = useState(false);
 
   // ── Rediger eiendel ───────────────────────────────────────────────────────────
   const [showEditModal, setShowEditModal] = useState(false);
@@ -161,44 +180,90 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans, u
 
   const resetTaskForm = () => {
     setTitle(""); setDueDate(""); setCost(""); setResponsibleId("");
-    setRecurring(false); setRecurringMonths("12"); setNotes("");
+    setRecurring(false); setRecurringMonths("12"); setNotes(""); setDateMode("month");
   };
 
+  // Konverter måned-input (YYYY-MM) til dato (YYYY-MM-01)
+  const resolveDueDate = (raw: string, mode: "month" | "date") =>
+    mode === "month" && raw.length === 7 ? raw + "-01" : raw;
+
   const handleSaveTask = async () => {
-    if (!title.trim() || !dueDate) return;
+    const resolvedDate = resolveDueDate(dueDate, dateMode);
+    if (!title.trim() || !resolvedDate) return;
     setSaving(true);
 
     let eventId: string | null = null;
     if (responsibleId) {
       const { data: event, error: eventError } = await supabase
         .from("events")
-        .insert({ title: title.trim(), date: dueDate, start_time: null, end_time: null, recurring: false })
+        .insert({ title: title.trim(), date: resolvedDate, start_time: null, end_time: null, recurring: false })
         .select().single();
       if (eventError || !event) { alert("Feil ved oppretting av kalenderaktivitet: " + eventError?.message); setSaving(false); return; }
       await supabase.from("event_participants").insert({ event_id: event.id, family_member_id: responsibleId });
       eventId = event.id;
     }
 
-    const { error } = await supabase.from("asset_tasks").insert({
-      asset_id: asset.id, title: title.trim(), due_date: dueDate,
+    const { data: newTask, error } = await supabase.from("asset_tasks").insert({
+      asset_id: asset.id, title: title.trim(), due_date: resolvedDate,
       estimated_cost: cost ? parseInt(cost) : null,
       responsible_member_id: responsibleId || null,
       recurring, recurring_months: recurring ? parseInt(recurringMonths) : null,
       notes: notes.trim() || null, event_id: eventId,
-    });
+    }).select().single();
 
     setSaving(false);
     if (error) { alert("Feil: " + error.message); return; }
+    if (newTask) setLocalTasks((prev) => [...prev, newTask as AssetTask]);
     setShowTaskModal(false);
     resetTaskForm();
-    router.refresh();
+  };
+
+  const openEditTask = (task: AssetTask) => {
+    const isMonthOnly = task.due_date.endsWith("-01");
+    setEditTitle(task.title);
+    setEditDueDate(isMonthOnly ? task.due_date.slice(0, 7) : task.due_date);
+    setEditDateMode(isMonthOnly ? "month" : "date");
+    setEditCost(task.estimated_cost?.toString() ?? "");
+    setEditResponsibleId(task.responsible_member_id ?? "");
+    setEditRecurring(task.recurring ?? false);
+    setEditRecurringMonths(task.recurring_months?.toString() ?? "12");
+    setEditNotes(task.notes ?? "");
+    setEditingTask(task);
+  };
+
+  const handleUpdateTask = async () => {
+    if (!editingTask || !editTitle.trim()) return;
+    const resolvedDate = resolveDueDate(editDueDate, editDateMode);
+    if (!resolvedDate) return;
+    setEditTaskSaving(true);
+
+    const { data: updated, error } = await supabase.from("asset_tasks").update({
+      title: editTitle.trim(),
+      due_date: resolvedDate,
+      estimated_cost: editCost ? parseInt(editCost) : null,
+      responsible_member_id: editResponsibleId || null,
+      recurring: editRecurring,
+      recurring_months: editRecurring ? parseInt(editRecurringMonths) : null,
+      notes: editNotes.trim() || null,
+    }).eq("id", editingTask.id).select().single();
+
+    if (!error && updated) {
+      setLocalTasks((prev) => prev.map((t) => t.id === editingTask.id ? updated as AssetTask : t));
+      // Synk kalenderoppgave hvis den finnes
+      if (editingTask.event_id) {
+        await supabase.from("events").update({ title: editTitle.trim(), date: resolvedDate }).eq("id", editingTask.event_id);
+      }
+    }
+    if (error) alert("Feil: " + error.message);
+    setEditTaskSaving(false);
+    setEditingTask(null);
   };
 
   const handleDeleteTask = async (task: AssetTask) => {
     if (!confirm(`Slett "${task.title}"?`)) return;
     if (task.event_id) await supabase.from("events").delete().eq("id", task.event_id);
     await supabase.from("asset_tasks").delete().eq("id", task.id);
-    router.refresh();
+    setLocalTasks((prev) => prev.filter((t) => t.id !== task.id));
   };
 
   const handleSaveEdit = async () => {
@@ -490,10 +555,10 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans, u
         {/* ── Vedlikeholdsoppgaver ──────────────────────────────────────────────── */}
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Vedlikeholdsoppgaver</h2>
-          <span className="text-xs text-gray-400">{tasks.length} oppgaver</span>
+          <span className="text-xs text-gray-400">{localTasks.length} oppgaver</span>
         </div>
 
-        {tasks.length === 0 && (
+        {localTasks.length === 0 && (
           <div className="text-center py-10">
             <p className="text-gray-400 text-sm mb-3">Ingen oppgaver lagt til ennå.</p>
             <button onClick={() => setShowTaskModal(true)} className="text-blue-500 hover:text-blue-600 text-sm transition-colors">
@@ -503,7 +568,7 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans, u
         )}
 
         <div className="space-y-2">
-          {tasks.map((task) => {
+          {localTasks.map((task) => {
             const due = new Date(task.due_date + "T00:00:00");
             const isOverdue = due < today;
             const isSoon = !isOverdue && (due.getTime() - today.getTime()) < 1000 * 60 * 60 * 24 * 30;
@@ -513,7 +578,7 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans, u
             return (
               <div key={task.id} className="p-4 bg-white rounded-xl">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="font-medium">{task.title}</div>
                     <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
                       <span className={`px-2 py-0.5 rounded-full font-medium ${isOverdue ? "bg-red-100 text-red-600" : isSoon ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
@@ -531,11 +596,18 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans, u
                     </div>
                     {task.notes && <div className="text-xs text-gray-400 mt-1.5">{task.notes}</div>}
                   </div>
-                  <button onClick={() => handleDeleteTask(task)} className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                  <div className="flex gap-1.5 flex-shrink-0 mt-0.5">
+                    <button onClick={() => openEditTask(task)} className="text-gray-400 hover:text-blue-500 transition-colors p-1 rounded hover:bg-gray-100" title="Rediger">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button onClick={() => handleDeleteTask(task)} className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-gray-100" title="Slett">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -660,7 +732,7 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans, u
 
       {/* ── Modal: Ny oppgave ── */}
       {showTaskModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowTaskModal(false)}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setShowTaskModal(false); resetTaskForm(); }}>
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-semibold mb-4">Ny oppgave – {asset.name}</h2>
             <div className="space-y-3 mb-5">
@@ -672,8 +744,23 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans, u
               <div className="flex gap-3">
                 <div className="flex-1">
                   <label className="text-xs text-gray-400 mb-1 block">Når?</label>
-                  <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full p-2.5 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                  {/* Måned / Dato toggle */}
+                  <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5 mb-1.5">
+                    <button type="button" onClick={() => setDateMode("month")}
+                      className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${dateMode === "month" ? "bg-white shadow-sm text-gray-900" : "text-gray-400 hover:text-gray-600"}`}>
+                      Måned
+                    </button>
+                    <button type="button" onClick={() => setDateMode("date")}
+                      className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${dateMode === "date" ? "bg-white shadow-sm text-gray-900" : "text-gray-400 hover:text-gray-600"}`}>
+                      Dato
+                    </button>
+                  </div>
+                  {dateMode === "month"
+                    ? <input type="month" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+                        className="w-full p-2.5 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                    : <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+                        className="w-full p-2.5 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                  }
                 </div>
                 <div className="flex-1">
                   <label className="text-xs text-gray-400 mb-1 block">Kostnad (kr)</label>
@@ -712,6 +799,79 @@ export default function AssetDetail({ asset, tasks, members, loans: initLoans, u
               <button onClick={handleSaveTask} disabled={!title.trim() || !dueDate || saving}
                 className="flex-1 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-40 transition-colors text-sm font-medium text-white">
                 {saving ? "Lagrer…" : "Lagre"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Rediger oppgave ── */}
+      {editingTask && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setEditingTask(null)}>
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold mb-4">Rediger oppgave</h2>
+            <div className="space-y-3 mb-5">
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Hva må gjøres?</label>
+                <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} autoFocus
+                  className="w-full p-2.5 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-400 mb-1 block">Når?</label>
+                  <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5 mb-1.5">
+                    <button type="button" onClick={() => setEditDateMode("month")}
+                      className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${editDateMode === "month" ? "bg-white shadow-sm text-gray-900" : "text-gray-400 hover:text-gray-600"}`}>
+                      Måned
+                    </button>
+                    <button type="button" onClick={() => setEditDateMode("date")}
+                      className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${editDateMode === "date" ? "bg-white shadow-sm text-gray-900" : "text-gray-400 hover:text-gray-600"}`}>
+                      Dato
+                    </button>
+                  </div>
+                  {editDateMode === "month"
+                    ? <input type="month" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)}
+                        className="w-full p-2.5 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                    : <input type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)}
+                        className="w-full p-2.5 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                  }
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-gray-400 mb-1 block">Kostnad (kr)</label>
+                  <input type="number" placeholder="F.eks. 3000" value={editCost} onChange={(e) => setEditCost(e.target.value)}
+                    className="w-full p-2.5 rounded-lg bg-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Hvem er ansvarlig? (valgfritt)</label>
+                <select value={editResponsibleId} onChange={(e) => setEditResponsibleId(e.target.value)}
+                  className="w-full p-2.5 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                  <option value="">Ingen valgt</option>
+                  {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </div>
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={editRecurring} onChange={(e) => setEditRecurring(e.target.checked)} className="w-4 h-4 accent-blue-500" />
+                <span className="text-sm">Gjentas</span>
+              </label>
+              {editRecurring && (
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Intervall (måneder)</label>
+                  <input type="number" value={editRecurringMonths} onChange={(e) => setEditRecurringMonths(e.target.value)} min="1"
+                    className="w-full p-2.5 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                </div>
+              )}
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Notater (valgfritt)</label>
+                <input type="text" value={editNotes} onChange={(e) => setEditNotes(e.target.value)}
+                  className="w-full p-2.5 rounded-lg bg-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setEditingTask(null)} className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors text-sm">Avbryt</button>
+              <button onClick={handleUpdateTask} disabled={!editTitle.trim() || !editDueDate || editTaskSaving}
+                className="flex-1 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-40 transition-colors text-sm font-medium text-white">
+                {editTaskSaving ? "Lagrer…" : "Lagre endringer"}
               </button>
             </div>
           </div>
