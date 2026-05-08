@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase, setAuthCookies } from "@/lib/supabase/client";
+import { QlumioWordmark } from "@/components/QlumioBrand";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,9 +40,9 @@ export default function LoginPage() {
     <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Qlumio</h1>
-          <p className="text-gray-500 mt-1">Family operating system</p>
+        <div className="flex flex-col items-center mb-8 gap-2">
+          <QlumioWordmark width={200} />
+          <p className="text-sm text-gray-400 font-medium">Less chaos, more family</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
