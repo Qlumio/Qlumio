@@ -7,6 +7,7 @@ import { useUser } from "@/lib/userContext";
 import { supabase, clearAuthCookies } from "@/lib/supabase/client";
 import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
 import OnboardingCard from "@/components/OnboardingCard";
+import QuickAddBox from "@/components/quick-add/QuickAddBox";
 
 // ─── Konstanter ───────────────────────────────────────────────────────────────
 
@@ -411,6 +412,9 @@ export default function HomeView({
             expenseCount={onboardingCounts.expenseCount}
           />
         )}
+
+        {/* ── Hurtiglegg til ── */}
+        <QuickAddBox members={members.map((m) => ({ id: m.id, name: m.name }))} />
 
         {/* ── I dag-feed ── */}
         {feedItems !== null && feedItems.length > 0 && (
