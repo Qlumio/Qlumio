@@ -118,36 +118,22 @@ export default function LoginPage() {
         <div className="absolute w-[300px] h-[300px] rounded-full opacity-10 bg-white -bottom-20 -left-20" />
 
         {/* Logo */}
-        <div className="relative z-10 flex flex-col items-center gap-8">
+        <div className="relative z-10 flex flex-col items-center gap-6">
           <Image
             src="/icon-512x512.png"
             alt="Qlumio"
-            width={160}
-            height={160}
+            width={220}
+            height={220}
             priority
             className="drop-shadow-2xl"
           />
           <div className="text-center">
-            <h2 className="text-5xl font-extrabold text-white tracking-tight mb-4">
+            <h2 className="text-7xl font-extrabold text-white tracking-tight mb-5">
               Qlumio
             </h2>
-            <p className="text-2xl font-medium text-white/80 tracking-wide">
+            <p className="text-3xl font-medium text-white/80 tracking-wide">
               Less chaos, more family
             </p>
-          </div>
-
-          {/* Tre kort med verdipunkter */}
-          <div className="mt-6 space-y-3 w-full max-w-xs">
-            {[
-              { icon: "📅", text: "Familiekalenderen samlet på ett sted" },
-              { icon: "✅", text: "Gjøremål og ansvar for hele familien" },
-              { icon: "💰", text: "Full oversikt over familiens økonomi" },
-            ].map((item) => (
-              <div key={item.text} className="flex items-center gap-3 bg-white/15 backdrop-blur-sm rounded-2xl px-4 py-3">
-                <span className="text-xl">{item.icon}</span>
-                <span className="text-sm font-medium text-white">{item.text}</span>
-              </div>
-            ))}
           </div>
         </div>
       </div>
