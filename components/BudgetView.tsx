@@ -428,6 +428,68 @@ export default function BudgetView({
     setNewItemName(""); setAddingToCatId(null);
   };
 
+  // ── Legg til ny kategori ─────────────────────────────────────────────────────
+
+  const [addingCat, setAddingCat] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatType, setNewCatType] = useState<"income" | "expense" | "loan" | "insurance" | "savings">("expense");
+
+  const addCategory = async () => {
+    const name = newCatName.trim();
+    if (!name) { setAddingCat(false); return; }
+    const maxOrder = Math.max(0, ...categories.map((c) => c.sort_order));
+    const { data: newCat } = await supabase.from("budget_categories")
+      .insert({ name, type: newCatType, sort_order: maxOrder + 1 })
+      .select().single();
+    if (newCat) {
+      setCategories((prev) => [...prev, { ...newCat, items: [] } as Category]);
+    }
+    setNewCatName(""); setAddingCat(false);
+  };
+
+  // ── Slett kategori ───────────────────────────────────────────────────────────
+
+  const deleteCategory = async (catId: string) => {
+    if (!confirm("Slett hele kategorien og alle poster i den?")) return;
+    await supabase.from("budget_items").delete().eq("category_id", catId);
+    await supabase.from("budget_categories").delete().eq("id", catId);
+    setCategories((prev) => prev.filter((c) => c.id !== catId));
+  };
+
+  // ── Sett opp standard budsjett ───────────────────────────────────────────────
+
+  const [settingUp, setSettingUp] = useState(false);
+
+  const setupDefaultCategories = async () => {
+    setSettingUp(true);
+    const defaults_setup: { name: string; type: string; sort_order: number; items: string[] }[] = [
+      { name: "Inntekter", type: "income", sort_order: 1, items: ["Lønn partner 1", "Lønn partner 2", "Trygd / NAV"] },
+      { name: "Bolig", type: "expense", sort_order: 2, items: ["Husleie / lån", "Strøm", "Forsikring bolig", "Internett / TV"] },
+      { name: "Mat og dagligvarer", type: "expense", sort_order: 3, items: ["Dagligvarer", "Restaurant / takeaway"] },
+      { name: "Transport", type: "expense", sort_order: 4, items: ["Drivstoff / lading", "Kollektivtransport", "Bilforsikring", "Bompenger"] },
+      { name: "Barn", type: "expense", sort_order: 5, items: ["Barnehage / SFO", "Klær og utstyr", "Aktiviteter"] },
+      { name: "Abonnementer", type: "expense", sort_order: 6, items: ["Strømmetjenester", "Treningssenter", "Mobilabonnement"] },
+      { name: "Sparing", type: "savings", sort_order: 7, items: ["Bufferkonto", "Pensjonssparing", "BSU"] },
+    ];
+
+    for (const cat of defaults_setup) {
+      const { data: newCat } = await supabase.from("budget_categories")
+        .insert({ name: cat.name, type: cat.type, sort_order: cat.sort_order })
+        .select().single();
+      if (newCat) {
+        const items: Item[] = [];
+        for (let i = 0; i < cat.items.length; i++) {
+          const { data: newItem } = await supabase.from("budget_items")
+            .insert({ category_id: newCat.id, name: cat.items[i], sort_order: i + 1, monthly_default: 0, source: "manual" })
+            .select().single();
+          if (newItem) items.push(newItem as Item);
+        }
+        setCategories((prev) => [...prev, { ...newCat, items } as Category]);
+      }
+    }
+    setSettingUp(false);
+  };
+
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
@@ -499,6 +561,53 @@ export default function BudgetView({
           ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "actual" && (
         <>
+          {/* ── Tom tilstand ── */}
+          {categories.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+              <div className="text-5xl mb-4">💰</div>
+              <h2 className="text-xl font-bold text-gray-800 mb-2">Ingen budsjettdata ennå</h2>
+              <p className="text-sm text-gray-500 mb-8 max-w-sm">
+                Sett opp budsjettet ditt med standard norske husholdningskategorier, eller start fra scratch.
+              </p>
+              <button
+                onClick={setupDefaultCategories}
+                disabled={settingUp}
+                className="px-6 py-3 rounded-xl text-white text-sm font-semibold disabled:opacity-50 transition-colors mb-3"
+                style={{ background: "linear-gradient(135deg, #8B5CF6, #22D3EE)" }}
+              >
+                {settingUp ? "Setter opp…" : "✨ Sett opp standard budsjett"}
+              </button>
+              <button
+                onClick={() => setAddingCat(true)}
+                className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                Eller legg til en kategori manuelt
+              </button>
+              {addingCat && (
+                <div className="mt-4 flex items-center gap-2 flex-wrap justify-center">
+                  <input
+                    type="text" value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
+                    placeholder="Kategorinavn…" autoFocus
+                    onKeyDown={(e) => { if (e.key === "Enter") addCategory(); if (e.key === "Escape") setAddingCat(false); }}
+                    className="bg-gray-100 rounded-lg px-3 py-2 text-sm outline-none ring-1 ring-blue-500 w-44"
+                  />
+                  <select value={newCatType} onChange={(e) => setNewCatType(e.target.value as typeof newCatType)}
+                    className="bg-gray-100 rounded-lg px-3 py-2 text-sm outline-none ring-1 ring-gray-300">
+                    <option value="income">Inntekt</option>
+                    <option value="expense">Utgift</option>
+                    <option value="loan">Lån</option>
+                    <option value="insurance">Forsikring</option>
+                    <option value="savings">Sparing</option>
+                  </select>
+                  <button onClick={addCategory} className="px-3 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600">Legg til</button>
+                  <button onClick={() => setAddingCat(false)} className="text-sm text-gray-400 hover:text-gray-600">Avbryt</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {categories.length > 0 && (
+          <>
           <p className="px-4 py-2 text-xs text-gray-400">
             Klikk et beløp for å redigere. Første verdi du setter gjelder alle måneder.{" "}
             <span className="text-blue-500">Blå tall</span> er månedlige unntak.
@@ -535,6 +644,15 @@ export default function BudgetView({
                             <span className={`text-gray-400 text-xs transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{cat.name}</span>
                             <span className="text-xs text-gray-300">{cat.items.length} poster</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); deleteCategory(cat.id); }}
+                              className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-400 p-0.5"
+                              title="Slett kategori"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
                           </div>
                         </td>
                         {monthCols.map((col) => (
@@ -918,6 +1036,40 @@ export default function BudgetView({
               </tbody>
             </table>
           </div>
+
+          {/* Legg til kategori */}
+          <div className="px-4 py-4 border-t border-gray-100">
+            {addingCat ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="text" value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
+                  placeholder="Kategorinavn…" autoFocus
+                  onKeyDown={(e) => { if (e.key === "Enter") addCategory(); if (e.key === "Escape") setAddingCat(false); }}
+                  className="bg-gray-100 rounded-lg px-3 py-2 text-sm outline-none ring-1 ring-blue-500 w-44"
+                />
+                <select value={newCatType} onChange={(e) => setNewCatType(e.target.value as typeof newCatType)}
+                  className="bg-gray-100 rounded-lg px-3 py-2 text-sm outline-none ring-1 ring-gray-300">
+                  <option value="income">Inntekt</option>
+                  <option value="expense">Utgift</option>
+                  <option value="loan">Lån</option>
+                  <option value="insurance">Forsikring</option>
+                  <option value="savings">Sparing</option>
+                </select>
+                <button onClick={addCategory} className="px-3 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600">Legg til</button>
+                <button onClick={() => { setAddingCat(false); setNewCatName(""); }} className="text-sm text-gray-400 hover:text-gray-600">Avbryt</button>
+              </div>
+            ) : (
+              <button onClick={() => setAddingCat(true)}
+                className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Legg til kategori
+              </button>
+            )}
+          </div>
+          </>
+          )}
         </>
       )}
 
