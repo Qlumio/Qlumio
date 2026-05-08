@@ -12,6 +12,7 @@ type Purchase = {
   date: string;
   notes: string | null;
   category: string;
+  asset_id: string | null;
 };
 
 type MaintenanceTask = {
@@ -21,10 +22,16 @@ type MaintenanceTask = {
   asset_name: string;
 };
 
+type Asset = {
+  id: string;
+  name: string;
+};
+
 type Props = {
   initialShoppingItems: ShoppingItem[];
   initialPurchases: Purchase[];
   initialMaintenanceTasks: MaintenanceTask[];
+  initialAssets: Asset[];
 };
 
 const MONTH_NAMES = [
@@ -66,7 +73,7 @@ function getCurrentMonthKey(): string {
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export default function InnkjopView({ initialShoppingItems, initialPurchases, initialMaintenanceTasks }: Props) {
+export default function InnkjopView({ initialShoppingItems, initialPurchases, initialMaintenanceTasks, initialAssets }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<"dagligvare" | "planlagte">("dagligvare");
 
@@ -128,11 +135,13 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
   // --- Planlagte kjøp ---
   const [purchases, setPurchases] = useState<Purchase[]>(initialPurchases);
   const maintenanceTasks = initialMaintenanceTasks;
+  const assets = initialAssets;
   const [showModal, setShowModal] = useState(false);
   const [pTitle, setPTitle] = useState("");
   const [pAmount, setPAmount] = useState("");
   const [pMonth, setPMonth] = useState(""); // "YYYY-MM"
   const [pNotes, setPNotes] = useState("");
+  const [pAssetId, setPAssetId] = useState("");
   const [saving, setSaving] = useState(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverMonth, setDragOverMonth] = useState<string | null>(null);
@@ -140,7 +149,15 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
   const monthKeys = generateMonthKeys(12);
   const currentMonthKey = getCurrentMonthKey();
 
-  const resetPurchaseForm = () => { setPTitle(""); setPAmount(""); setPMonth(""); setPNotes(""); };
+  const resetPurchaseForm = () => {
+    setPTitle(""); setPAmount(""); setPMonth(""); setPNotes(""); setPAssetId("");
+  };
+
+  function openModal(prefillMonthKey?: string) {
+    resetPurchaseForm();
+    if (prefillMonthKey) setPMonth(prefillMonthKey);
+    setShowModal(true);
+  }
 
   async function savePurchase() {
     if (!pTitle.trim() || !pAmount || !pMonth) return;
@@ -148,7 +165,14 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
     const dateStr = monthKeyToDate(pMonth);
     const { data, error } = await supabase
       .from("planned_expenses")
-      .insert({ title: pTitle.trim(), amount: parseInt(pAmount), date: dateStr, category: "innkjop", notes: pNotes.trim() || null })
+      .insert({
+        title: pTitle.trim(),
+        amount: parseInt(pAmount),
+        date: dateStr,
+        category: "innkjop",
+        notes: pNotes.trim() || null,
+        asset_id: pAssetId || null,
+      })
       .select()
       .single();
     setSaving(false);
@@ -209,7 +233,7 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
             </div>
             {tab === "planlagte" && (
               <button
-                onClick={() => setShowModal(true)}
+                onClick={() => openModal()}
                 className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -338,7 +362,7 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
             <div className="text-center py-8 px-6">
               <p className="text-3xl mb-3">🎿</p>
               <p className="text-gray-400 text-sm mb-3">Ingen planlagte innkjøp ennå.</p>
-              <button onClick={() => setShowModal(true)} className="text-blue-500 hover:text-blue-600 text-sm transition-colors">
+              <button onClick={() => openModal()} className="text-blue-500 hover:text-blue-600 text-sm transition-colors">
                 + Legg til første innkjøp
               </button>
             </div>
@@ -369,18 +393,27 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
                     onDragLeave={() => { if (dragOverMonth === monthKey) setDragOverMonth(null); }}
                   >
                     {/* Kolonneheader */}
-                    <div className="mb-3 px-1">
-                      <div className={`text-sm font-semibold ${isCurrentMonth ? "text-blue-600" : "text-gray-700"}`}>
-                        {formatMonthKey(monthKey)}
-                        {isCurrentMonth && (
-                          <span className="ml-1.5 text-xs font-normal text-blue-400">nå</span>
+                    <div className="mb-3 px-1 flex items-start justify-between gap-1">
+                      <div className="min-w-0">
+                        <div className={`text-sm font-semibold ${isCurrentMonth ? "text-blue-600" : "text-gray-700"}`}>
+                          {formatMonthKey(monthKey)}
+                          {isCurrentMonth && (
+                            <span className="ml-1.5 text-xs font-normal text-blue-400">nå</span>
+                          )}
+                        </div>
+                        {monthPurchases.length > 0 && (
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            {formatAmount(monthPurchases.reduce((s, p) => s + p.amount, 0))}
+                          </div>
                         )}
                       </div>
-                      {monthPurchases.length > 0 && (
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          {formatAmount(monthPurchases.reduce((s, p) => s + p.amount, 0))}
-                        </div>
-                      )}
+                      <button
+                        onClick={() => openModal(monthKey)}
+                        className="flex-shrink-0 w-6 h-6 rounded-lg bg-white hover:bg-blue-500 hover:text-white text-gray-400 flex items-center justify-center transition-colors shadow-sm text-base leading-none"
+                        title={`Legg til i ${formatMonthKey(monthKey)}`}
+                      >
+                        +
+                      </button>
                     </div>
 
                     {/* Kort */}
@@ -410,6 +443,13 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
                           <div className="text-sm font-semibold text-blue-600">{formatAmount(p.amount)}</div>
                           {p.notes && (
                             <div className="text-xs text-gray-400 mt-1 truncate">{p.notes}</div>
+                          )}
+                          {p.asset_id && (
+                            <div className="mt-1.5 flex items-center gap-1">
+                              <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md truncate">
+                                🔧 {assets.find((a) => a.id === p.asset_id)?.name ?? "Eiendel"}
+                              </span>
+                            </div>
                           )}
                           {/* Mobilalternativ: dropdown for å flytte */}
                           <select
@@ -497,6 +537,26 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
                   />
                 </div>
               </div>
+              {assets.length > 0 && (
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Knytt til eiendel (valgfritt)</label>
+                  <select
+                    value={pAssetId}
+                    onChange={(e) => setPAssetId(e.target.value)}
+                    className="w-full p-2.5 rounded-lg bg-gray-100 outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900"
+                  >
+                    <option value="">— Ingen eiendel —</option>
+                    {assets.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                  {pAssetId && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      🔧 Kostnaden teller med i total cost of ownership for denne eiendelen
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="text-xs text-gray-400 mb-1 block">Notater (valgfritt)</label>
                 <input

@@ -17,7 +17,7 @@ export default async function InnkjopPage() {
     .toISOString()
     .slice(0, 10);
 
-  const [{ data: shoppingItems }, { data: purchases }, { data: maintenanceTasks }] =
+  const [{ data: shoppingItems }, { data: purchases }, { data: maintenanceTasks }, { data: assets }] =
     await Promise.all([
       supabase.from("shopping_items").select("*").order("created_at"),
       supabase
@@ -30,6 +30,7 @@ export default async function InnkjopPage() {
         .select("id, title, due_date, assets(name)")
         .lte("due_date", twelveMonthsOut)
         .order("due_date"),
+      supabase.from("assets").select("id, name").order("name"),
     ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,6 +46,7 @@ export default async function InnkjopPage() {
       initialShoppingItems={(shoppingItems ?? []) as ShoppingItem[]}
       initialPurchases={purchases ?? []}
       initialMaintenanceTasks={normalizedMaintenance}
+      initialAssets={(assets ?? []) as { id: string; name: string }[]}
     />
   );
 }
