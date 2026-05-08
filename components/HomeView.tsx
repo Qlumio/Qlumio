@@ -8,6 +8,7 @@ import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
 import OnboardingCard from "@/components/OnboardingCard";
 import QuickAddBox from "@/components/quick-add/QuickAddBox";
 import ThemeToggle from "@/components/ThemeToggle";
+import { QLogo } from "@/components/QlumioBrand";
 
 // ─── Konstanter ───────────────────────────────────────────────────────────────
 
@@ -471,35 +472,52 @@ export default function HomeView({
       <div className="max-w-lg mx-auto px-4 pb-12">
 
         {/* ── Header ── */}
-        <div className="flex items-center justify-between pt-8 pb-6">
+        <div className="pt-8 pb-5">
+          {/* Topp-rad: logo + kontroller */}
+          <div className="flex items-center justify-between mb-3">
+            {/* Brand logo */}
+            <div className="flex items-center gap-2.5">
+              <QLogo className="w-9 h-9 flex-shrink-0" />
+              <span
+                className="text-xl font-extrabold tracking-tight"
+                style={{ color: "var(--brand-dark)" }}
+              >
+                Qlumio
+              </span>
+            </div>
+            {/* Kontroller */}
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white transition-colors"
+                title="Logg ut"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
+              <Link
+                href="/innstillinger"
+                className="ml-1 flex items-center justify-center rounded-full hover:ring-2 hover:ring-gray-200 transition"
+                title="Innstillinger"
+              >
+                <div className={`w-9 h-9 rounded-full ${freshUser.color} flex items-center justify-center text-white text-sm font-bold`}>
+                  {freshUser.name[0].toUpperCase()}
+                </div>
+              </Link>
+            </div>
+          </div>
+          {/* Hilsen */}
           <div>
-            <h1 className="text-xl font-bold text-gray-900">{getGreeting(freshUser.name)}</h1>
+            <h1 className="text-2xl font-bold" style={{ color: "var(--brand-dark)" }}>
+              {getGreeting(freshUser.name)}
+            </h1>
             <p className="text-sm text-gray-400 mt-0.5 capitalize">
               {new Date(todayStr + "T00:00:00").toLocaleDateString("nb-NO", {
                 weekday: "long", day: "numeric", month: "long",
               })}
             </p>
-          </div>
-          <div className="flex items-center gap-1">
-            <ThemeToggle />
-            <button
-              onClick={handleLogout}
-              className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white transition-colors"
-              title="Logg ut"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-            </button>
-            <Link
-              href="/innstillinger"
-              className="ml-1 flex items-center justify-center rounded-full hover:ring-2 hover:ring-gray-200 transition"
-              title="Innstillinger"
-            >
-              <div className={`w-9 h-9 rounded-full ${freshUser.color} flex items-center justify-center text-white text-sm font-bold`}>
-                {freshUser.name[0].toUpperCase()}
-              </div>
-            </Link>
           </div>
         </div>
 
@@ -548,8 +566,8 @@ export default function HomeView({
             {todayFeed.length > 0 && (
               <>
                 <div className="flex items-center gap-2 mb-2.5">
-                  <span className="text-xs font-semibold text-blue-500 uppercase tracking-wide">I dag</span>
-                  <div className="flex-1 h-px bg-blue-100" />
+                  <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--brand-purple)" }}>I dag</span>
+                  <div className="flex-1 h-px" style={{ backgroundColor: "rgba(139,92,246,0.18)" }} />
                 </div>
                 <div className="space-y-2 mb-4">
                   {todayFeed.map((item) => {
@@ -560,9 +578,10 @@ export default function HomeView({
                       <Link
                         key={`${item.id}_${item.type}`}
                         href={item.href}
-                        className="flex items-center gap-3 bg-white px-4 py-3.5 rounded-xl hover:bg-gray-50 transition-colors border-l-[3px] border-blue-400"
+                        className="flex items-center gap-3 bg-white px-4 py-3.5 rounded-xl hover:bg-gray-50 transition-colors border-l-[3px]"
+                        style={{ borderLeftColor: "var(--brand-purple)" }}
                       >
-                        <span className="text-blue-400 flex-shrink-0">
+                        <span className="flex-shrink-0" style={{ color: "var(--brand-purple)" }}>
                           <FeedIcon type={item.type} className="w-4 h-4" />
                         </span>
                         <div className="min-w-0 flex-1">
@@ -641,12 +660,15 @@ export default function HomeView({
                   href={mod.href}
                   className="flex items-center gap-3.5 p-4 bg-white hover:bg-gray-50 rounded-xl transition-colors group"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-gray-50 group-hover:bg-gray-100 flex items-center justify-center text-gray-500 group-hover:text-gray-700 transition-colors flex-shrink-0">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors" style={{ backgroundColor: "rgba(139,92,246,0.08)", color: "var(--brand-purple)" }}>
                     <mod.Icon className="w-5 h-5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold text-gray-900">{mod.title}</div>
-                    <div className={`text-xs mt-0.5 truncate ${stat.accent ? "text-blue-500 font-medium" : "text-gray-400"}`}>
+                    <div
+                    className="text-xs mt-0.5 truncate"
+                    style={stat.accent ? { color: "var(--brand-purple)", fontWeight: 600 } : { color: "#9ca3af" }}
+                  >
                       {stat.text}
                     </div>
                   </div>

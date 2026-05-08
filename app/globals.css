@@ -6,19 +6,35 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* ── Qlumio brand ──────────────────────────────────── */
+  --brand-purple:    #8B5CF6;
+  --brand-indigo:    #6366F1;
+  --brand-cyan:      #22D3EE;
+  --brand-dark:      #1A1B4B;
+  --brand-grad-from: #8B5CF6;
+  --brand-grad-to:   #22D3EE;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-nunito), system-ui, sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-nunito), system-ui, sans-serif;
+}
+
+/* ── Brand utilities ────────────────────────────────────────────────────────── */
+.brand-gradient { background: linear-gradient(135deg, var(--brand-grad-from), var(--brand-grad-to)); }
+.brand-text {
+  background: linear-gradient(135deg, var(--brand-grad-from), var(--brand-grad-to));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* ─── Dark mode overrides ────────────────────────────────────────────────────
