@@ -8,6 +8,7 @@ import { supabase, clearAuthCookies } from "@/lib/supabase/client";
 import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
 import OnboardingCard from "@/components/OnboardingCard";
 import QuickAddBox from "@/components/quick-add/QuickAddBox";
+import ThemeToggle from "@/components/ThemeToggle";
 
 // ─── Konstanter ───────────────────────────────────────────────────────────────
 
@@ -378,6 +379,8 @@ export default function HomeView({
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Tema-toggle */}
+            <ThemeToggle />
             {/* Logg ut */}
             <button
               onClick={handleLogout}
