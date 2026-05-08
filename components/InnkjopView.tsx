@@ -135,7 +135,7 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
 
   // --- Planlagte kjøp ---
   const [purchases, setPurchases] = useState<Purchase[]>(initialPurchases);
-  const maintenanceTasks = initialMaintenanceTasks;
+  const [maintenanceTasks, setMaintenanceTasks] = useState(initialMaintenanceTasks);
   const assets = initialAssets;
   const [showModal, setShowModal] = useState(false);
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
@@ -223,6 +223,12 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
     if (!confirm(`Slett "${title}"?`)) return;
     await supabase.from("planned_expenses").delete().eq("id", id);
     setPurchases((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  async function deleteMaintenanceTask(id: string, title: string) {
+    if (!confirm(`Slett vedlikeholdsoppgave "${title}"?`)) return;
+    await supabase.from("asset_tasks").delete().eq("id", id);
+    setMaintenanceTasks((prev) => prev.filter((m) => m.id !== id));
   }
 
   async function movePurchase(id: string, toMonthKey: string) {
@@ -515,7 +521,7 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
                         </div>
                       ))}
 
-                      {/* Vedlikeholdskort (ikke draggable, lenker til eiendeler) */}
+                      {/* Vedlikeholdskort (ikke draggable) */}
                       {monthMaintenance.map((m) => (
                         <div
                           key={`m-${m.id}`}
@@ -524,6 +530,15 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
                           <div className="flex items-start gap-2 mb-1">
                             <span className="text-base flex-shrink-0 leading-tight">🔧</span>
                             <span className="text-sm font-medium leading-tight text-gray-800 flex-1">{m.title}</span>
+                            <button
+                              onClick={() => deleteMaintenanceTask(m.id, m.title)}
+                              className="text-amber-300 hover:text-red-400 transition-colors flex-shrink-0"
+                              title="Slett oppgave"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
                           </div>
                           <div className="text-xs text-amber-600 font-medium">{m.asset_name}</div>
                         </div>
