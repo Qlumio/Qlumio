@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
+import HomeButton from "@/components/HomeButton";
 import { supabase } from "@/lib/supabase";
 import { useUser } from "@/lib/userContext";
 import type { Task, FamilyMember } from "@/lib/types";
@@ -150,15 +151,18 @@ export default function OppgaverView({ tasks: initialTasks, members }: Props) {
             </button>
             <h1 className="text-xl font-bold text-gray-900">Gjøremål</h1>
           </div>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Ny oppgave
-          </button>
+          <div className="flex items-center gap-2">
+            <HomeButton />
+            <button
+              onClick={() => setShowAdd(true)}
+              className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Ny oppgave
+            </button>
+          </div>
         </div>
 
         {/* Filter */}

@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import HomeButton from "@/components/HomeButton";
 import type { ShoppingItem } from "@/lib/types";
 
 export default function ShoppingList({
@@ -95,7 +96,8 @@ export default function ShoppingList({
     <main className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-lg mx-auto p-6">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8 pt-4">
+        <div className="flex items-center justify-between mb-8 pt-4">
+          <div className="flex items-center gap-3">
           <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-600 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -116,6 +118,8 @@ export default function ShoppingList({
               </p>
             </div>
           </div>
+          </div>
+          <HomeButton />
         </div>
 
         {/* Legg til vare */}

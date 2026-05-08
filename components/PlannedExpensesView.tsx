@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import HomeButton from "@/components/HomeButton";
 
 type Expense = {
   id: string;
@@ -151,15 +152,18 @@ export default function PlannedExpensesView({
               <h1 className="text-lg font-semibold">Fremtidige kostnader</h1>
             </div>
           ) : <div />}
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Legg til
-          </button>
+          <div className="flex items-center gap-2">
+            {!embedded && <HomeButton />}
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Legg til
+            </button>
+          </div>
         </div>
 
         {/* Totalsum */}

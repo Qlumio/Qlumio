@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useUser } from "@/lib/userContext";
+import HomeButton from "@/components/HomeButton";
 import type { Event, FamilyMember } from "@/lib/types";
 import { ARSHJUL_CATEGORIES } from "@/lib/types";
 
@@ -155,17 +156,20 @@ export default function ArshjulView({ events: initialEvents, members, year }: Pr
               <p className="text-xs text-gray-400">{year}</p>
             </div>
           </div>
-          {isAdmin && (
-            <button
-              onClick={() => setShowAdd(true)}
-              className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Legg til
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <HomeButton />
+            {isAdmin && (
+              <button
+                onClick={() => setShowAdd(true)}
+                className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Legg til
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Kategori-filter */}

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { ShoppingItem } from "@/lib/types";
+import HomeButton from "@/components/HomeButton";
 
 type Purchase = {
   id: string;
@@ -137,6 +138,7 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
   const maintenanceTasks = initialMaintenanceTasks;
   const assets = initialAssets;
   const [showModal, setShowModal] = useState(false);
+  const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
   const [pTitle, setPTitle] = useState("");
   const [pAmount, setPAmount] = useState("");
   const [pMonth, setPMonth] = useState(""); // "YYYY-MM"
@@ -151,6 +153,7 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
 
   const resetPurchaseForm = () => {
     setPTitle(""); setPAmount(""); setPMonth(""); setPNotes(""); setPAssetId("");
+    setEditingPurchase(null);
   };
 
   function openModal(prefillMonthKey?: string) {
@@ -159,25 +162,59 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
     setShowModal(true);
   }
 
+  function openEditModal(p: Purchase) {
+    setEditingPurchase(p);
+    setPTitle(p.title);
+    setPAmount(String(p.amount));
+    setPMonth(dateToMonthKey(p.date));
+    setPNotes(p.notes ?? "");
+    setPAssetId(p.asset_id ?? "");
+    setShowModal(true);
+  }
+
   async function savePurchase() {
     if (!pTitle.trim() || !pAmount || !pMonth) return;
     setSaving(true);
     const dateStr = monthKeyToDate(pMonth);
-    const { data, error } = await supabase
-      .from("planned_expenses")
-      .insert({
-        title: pTitle.trim(),
-        amount: parseInt(pAmount),
-        date: dateStr,
-        category: "innkjop",
-        notes: pNotes.trim() || null,
-        asset_id: pAssetId || null,
-      })
-      .select()
-      .single();
-    setSaving(false);
-    if (error) { alert("Feil: " + error.message); return; }
-    setPurchases((prev) => [...prev, data as Purchase].sort((a, b) => a.date.localeCompare(b.date)));
+
+    if (editingPurchase) {
+      const { error } = await supabase
+        .from("planned_expenses")
+        .update({
+          title: pTitle.trim(),
+          amount: parseInt(pAmount),
+          date: dateStr,
+          notes: pNotes.trim() || null,
+          asset_id: pAssetId || null,
+        })
+        .eq("id", editingPurchase.id);
+      setSaving(false);
+      if (error) { alert("Feil: " + error.message); return; }
+      setPurchases((prev) =>
+        prev.map((p) =>
+          p.id === editingPurchase.id
+            ? { ...p, title: pTitle.trim(), amount: parseInt(pAmount), date: dateStr, notes: pNotes.trim() || null, asset_id: pAssetId || null }
+            : p
+        ).sort((a, b) => a.date.localeCompare(b.date))
+      );
+    } else {
+      const { data, error } = await supabase
+        .from("planned_expenses")
+        .insert({
+          title: pTitle.trim(),
+          amount: parseInt(pAmount),
+          date: dateStr,
+          category: "innkjop",
+          notes: pNotes.trim() || null,
+          asset_id: pAssetId || null,
+        })
+        .select()
+        .single();
+      setSaving(false);
+      if (error) { alert("Feil: " + error.message); return; }
+      setPurchases((prev) => [...prev, data as Purchase].sort((a, b) => a.date.localeCompare(b.date)));
+    }
+
     setShowModal(false);
     resetPurchaseForm();
   }
@@ -231,17 +268,20 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
               <div className="w-px h-5 bg-gray-200" />
               <h1 className="text-lg font-semibold">Innkjøp</h1>
             </div>
-            {tab === "planlagte" && (
-              <button
-                onClick={() => openModal()}
-                className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Legg til
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              <HomeButton />
+              {tab === "planlagte" && (
+                <button
+                  onClick={() => openModal()}
+                  className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Legg til
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Faner */}
@@ -431,14 +471,25 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
                         >
                           <div className="flex items-start justify-between gap-1 mb-1.5">
                             <span className="text-sm font-medium leading-tight flex-1">{p.title}</span>
-                            <button
-                              onClick={() => deletePurchase(p.id, p.title)}
-                              className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
+                            <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); openEditModal(p); }}
+                                className="text-gray-300 hover:text-blue-400 transition-colors"
+                                title="Rediger"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.536-6.536a2 2 0 012.828 2.828L11.828 13.828a2 2 0 01-1.414.586H8v-2.414a2 2 0 01.586-1.414z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => deletePurchase(p.id, p.title)}
+                                className="text-gray-300 hover:text-red-400 transition-colors"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
                           </div>
                           <div className="text-sm font-semibold text-blue-600">{formatAmount(p.amount)}</div>
                           {p.notes && (
@@ -502,7 +553,7 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
           onClick={() => { setShowModal(false); resetPurchaseForm(); }}
         >
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold mb-4">Nytt planlagt innkjøp</h2>
+            <h2 className="text-lg font-semibold mb-4">{editingPurchase ? "Rediger innkjøp" : "Nytt planlagt innkjøp"}</h2>
             <div className="space-y-3 mb-5">
               <div>
                 <label className="text-xs text-gray-400 mb-1 block">Hva skal kjøpes?</label>
@@ -580,7 +631,7 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
                 disabled={!pTitle.trim() || !pAmount || !pMonth || saving}
                 className="flex-1 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-40 transition-colors text-sm font-medium text-white"
               >
-                {saving ? "Lagrer…" : "Lagre"}
+                {saving ? "Lagrer…" : editingPurchase ? "Oppdater" : "Lagre"}
               </button>
             </div>
           </div>

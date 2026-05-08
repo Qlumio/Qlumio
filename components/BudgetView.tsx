@@ -4,6 +4,7 @@ import React, { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import HomeButton from "@/components/HomeButton";
 
 type Item = {
   id: string;
@@ -447,6 +448,7 @@ export default function BudgetView({
           )}
           {embedded && <div />}
           <div className="flex items-center gap-2">
+            {!embedded && <HomeButton />}
             <div className="flex items-center gap-1 bg-white rounded-lg px-1 py-0.5">
               <button onClick={() => setSelectedYear((y) => Math.max(currentYear, y - 1))} disabled={selectedYear <= currentYear}
                 className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-30 transition-colors text-sm">‹</button>

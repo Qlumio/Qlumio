@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import HomeButton from "@/components/HomeButton";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -393,7 +394,8 @@ export default function LFPView({ insurances: init_i, loans: init_l, pensions: i
               <h1 className="text-lg font-semibold">Lån, forsikringer og pensjon</h1>
             </div>
           ) : <div />}
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {!embedded && <HomeButton />}
             <button onClick={() => setShowExport(true)}
               className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 text-sm px-3 py-1.5 rounded-lg bg-white hover:bg-gray-100 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
