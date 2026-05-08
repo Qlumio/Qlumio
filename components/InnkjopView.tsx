@@ -14,9 +14,17 @@ type Purchase = {
   category: string;
 };
 
+type MaintenanceTask = {
+  id: string;
+  title: string;
+  due_date: string;
+  asset_name: string;
+};
+
 type Props = {
   initialShoppingItems: ShoppingItem[];
   initialPurchases: Purchase[];
+  initialMaintenanceTasks: MaintenanceTask[];
 };
 
 const MONTH_NAMES = [
@@ -58,7 +66,7 @@ function getCurrentMonthKey(): string {
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export default function InnkjopView({ initialShoppingItems, initialPurchases }: Props) {
+export default function InnkjopView({ initialShoppingItems, initialPurchases, initialMaintenanceTasks }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<"dagligvare" | "planlagte">("dagligvare");
 
@@ -119,6 +127,7 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases }: 
 
   // --- Planlagte kjøp ---
   const [purchases, setPurchases] = useState<Purchase[]>(initialPurchases);
+  const maintenanceTasks = initialMaintenanceTasks;
   const [showModal, setShowModal] = useState(false);
   const [pTitle, setPTitle] = useState("");
   const [pAmount, setPAmount] = useState("");
@@ -180,6 +189,7 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases }: 
   }
 
   const totalPurchases = purchases.reduce((s, p) => s + p.amount, 0);
+  const totalItems = purchases.length + maintenanceTasks.length;
 
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900">
@@ -309,19 +319,22 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases }: 
       {tab === "planlagte" && (
         <div className="pb-8">
           {/* Summering */}
-          {purchases.length > 0 && (
+          {totalItems > 0 && (
             <div className="px-6 mb-4">
               <div className="max-w-lg mx-auto bg-white rounded-xl p-4 flex items-center justify-between">
                 <div>
                   <div className="text-xs text-gray-400 uppercase tracking-wide">Totalt planlagt</div>
                   <div className="text-xl font-bold mt-0.5">{formatAmount(totalPurchases)}</div>
                 </div>
-                <div className="text-xs text-gray-400">{purchases.length} innkjøp</div>
+                <div className="flex gap-3 text-xs text-gray-400">
+                  {purchases.length > 0 && <span>{purchases.length} innkjøp</span>}
+                  {maintenanceTasks.length > 0 && <span>🔧 {maintenanceTasks.length} vedlikehold</span>}
+                </div>
               </div>
             </div>
           )}
 
-          {purchases.length === 0 && (
+          {totalItems === 0 && (
             <div className="text-center py-8 px-6">
               <p className="text-3xl mb-3">🎿</p>
               <p className="text-gray-400 text-sm mb-3">Ingen planlagte innkjøp ennå.</p>
@@ -335,9 +348,11 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases }: 
           <div className="overflow-x-auto">
             <div className="flex gap-3 px-6 pb-2" style={{ minWidth: "max-content" }}>
               {monthKeys.map((monthKey) => {
-                const monthPurchases = purchases.filter((p) => dateToMonthKey(p.date) === monthKey);
-                const isCurrentMonth = monthKey === currentMonthKey;
-                const isDragOver = dragOverMonth === monthKey;
+                const monthPurchases    = purchases.filter((p) => dateToMonthKey(p.date) === monthKey);
+                const monthMaintenance  = maintenanceTasks.filter((m) => dateToMonthKey(m.due_date) === monthKey);
+                const totalInMonth      = monthPurchases.length + monthMaintenance.length;
+                const isCurrentMonth    = monthKey === currentMonthKey;
+                const isDragOver        = dragOverMonth === monthKey;
 
                 return (
                   <div
@@ -370,6 +385,7 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases }: 
 
                     {/* Kort */}
                     <div className="space-y-2">
+                      {/* Innkjøpskort (draggable) */}
                       {monthPurchases.map((p) => (
                         <div
                           key={p.id}
@@ -407,10 +423,24 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases }: 
                           </select>
                         </div>
                       ))}
+
+                      {/* Vedlikeholdskort (ikke draggable, lenker til eiendeler) */}
+                      {monthMaintenance.map((m) => (
+                        <div
+                          key={`m-${m.id}`}
+                          className="bg-amber-50 border border-amber-100 rounded-xl p-3 shadow-sm select-none"
+                        >
+                          <div className="flex items-start gap-2 mb-1">
+                            <span className="text-base flex-shrink-0 leading-tight">🔧</span>
+                            <span className="text-sm font-medium leading-tight text-gray-800 flex-1">{m.title}</span>
+                          </div>
+                          <div className="text-xs text-amber-600 font-medium">{m.asset_name}</div>
+                        </div>
+                      ))}
                     </div>
 
                     {/* Tom dropsone */}
-                    {monthPurchases.length === 0 && (
+                    {totalInMonth === 0 && (
                       <div className={`h-14 rounded-xl border-2 border-dashed flex items-center justify-center transition-colors ${
                         isDragOver ? "border-blue-300 bg-blue-50" : "border-gray-200"
                       }`}>
