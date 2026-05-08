@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useUser } from "@/lib/userContext";
+import { supabase, clearAuthCookies } from "@/lib/supabase/client";
 import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
 import OnboardingCard from "@/components/OnboardingCard";
 
@@ -295,7 +297,14 @@ export default function HomeView({
   onboardingCounts,
 }: Props) {
   const { currentUser, isLoaded } = useUser();
+  const router = useRouter();
   const [feedItems, setFeedItems] = useState<FeedItem[] | null>(null);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    clearAuthCookies();
+    router.push("/login");
+  }
 
   // Disse må stå før tidlige returer (Rules of Hooks)
   const freshUser = currentUser
@@ -367,15 +376,31 @@ export default function HomeView({
               })}
             </p>
           </div>
-          <Link
-            href="/innstillinger"
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white transition-colors"
-            title="Innstillinger"
-          >
-            <div className={`w-8 h-8 rounded-full ${freshUser.color} flex items-center justify-center text-white text-sm font-bold`}>
-              {freshUser.name[0].toUpperCase()}
-            </div>
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* Logg ut */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white transition-colors text-xs font-medium"
+              title="Logg ut"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Logg ut
+            </button>
+
+            {/* Innstillinger-avatar */}
+            <Link
+              href="/innstillinger"
+              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg hover:bg-white transition-colors"
+              title="Innstillinger"
+            >
+              <div className={`w-8 h-8 rounded-full ${freshUser.color} flex items-center justify-center text-white text-sm font-bold`}>
+                {freshUser.name[0].toUpperCase()}
+              </div>
+              <span className="text-xs text-gray-400">Innstillinger</span>
+            </Link>
+          </div>
         </div>
 
         {/* ── Onboarding ── */}
