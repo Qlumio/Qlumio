@@ -353,10 +353,11 @@ export default function HomeView({
   const { currentUser, isLoaded } = useUser();
   const [feedItems, setFeedItems] = useState<FeedItem[] | null>(null);
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
+  function handleLogout() {
+    // Rydd cookies umiddelbart og naviger – vent ikke på signOut (kan henge)
     clearAuthCookies();
     window.location.href = "/login";
+    supabase.auth.signOut().catch(() => {}); // best-effort i bakgrunnen
   }
 
   const freshUser = currentUser
