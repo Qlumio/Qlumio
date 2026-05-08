@@ -148,6 +148,7 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
   const [pAssetId, setPAssetId] = useState("");
   const [saving, setSaving] = useState(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [draggedMaintenanceId, setDraggedMaintenanceId] = useState<string | null>(null);
   const [dragOverMonth, setDragOverMonth] = useState<string | null>(null);
 
   const monthKeys = generateMonthKeys(12);
@@ -244,8 +245,19 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
     }
   }
 
+  async function moveMaintenanceTask(id: string, toMonthKey: string) {
+    const newDate = monthKeyToDate(toMonthKey);
+    const { error } = await supabase.from("asset_tasks").update({ due_date: newDate }).eq("id", id);
+    if (!error) {
+      setMaintenanceTasks((prev) =>
+        prev.map((m) => m.id === id ? { ...m, due_date: newDate } : m)
+            .sort((a, b) => a.due_date.localeCompare(b.due_date))
+      );
+    }
+  }
+
   function handleDragStart(id: string) { setDraggedId(id); }
-  function handleDragEnd() { setDraggedId(null); setDragOverMonth(null); }
+  function handleDragEnd() { setDraggedId(null); setDraggedMaintenanceId(null); setDragOverMonth(null); }
   function handleDragOver(e: React.DragEvent, monthKey: string) {
     e.preventDefault();
     setDragOverMonth(monthKey);
@@ -253,7 +265,9 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
   function handleDrop(e: React.DragEvent, monthKey: string) {
     e.preventDefault();
     if (draggedId) { movePurchase(draggedId, monthKey); }
+    if (draggedMaintenanceId) { moveMaintenanceTask(draggedMaintenanceId, monthKey); }
     setDraggedId(null);
+    setDraggedMaintenanceId(null);
     setDragOverMonth(null);
   }
 
@@ -533,11 +547,16 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
                         </div>
                       ))}
 
-                      {/* Vedlikeholdskort (ikke draggable) */}
+                      {/* Vedlikeholdskort (draggable – synkroniserer due_date tilbake til asset_tasks) */}
                       {monthMaintenance.map((m) => (
                         <div
                           key={`m-${m.id}`}
-                          className="bg-amber-50 border border-amber-100 rounded-xl p-3 shadow-sm select-none"
+                          draggable
+                          onDragStart={() => { setDraggedMaintenanceId(m.id); }}
+                          onDragEnd={handleDragEnd}
+                          className={`bg-amber-50 border border-amber-100 rounded-xl p-3 shadow-sm cursor-grab active:cursor-grabbing transition-opacity ${
+                            draggedMaintenanceId === m.id ? "opacity-30" : "opacity-100"
+                          }`}
                         >
                           <div className="flex items-start gap-2 mb-1">
                             <span className="text-base flex-shrink-0 leading-tight">🔧</span>
@@ -553,6 +572,16 @@ export default function InnkjopView({ initialShoppingItems, initialPurchases, in
                             </button>
                           </div>
                           <div className="text-xs text-amber-600 font-medium">{m.asset_name}</div>
+                          {/* Mobilalternativ */}
+                          <select
+                            className="mt-2 w-full text-xs text-gray-500 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 focus:outline-none md:hidden"
+                            value={monthKey}
+                            onChange={(e) => moveMaintenanceTask(m.id, e.target.value)}
+                          >
+                            {monthKeys.map((mk) => (
+                              <option key={mk} value={mk}>{formatMonthKey(mk)}</option>
+                            ))}
+                          </select>
                         </div>
                       ))}
                     </div>
