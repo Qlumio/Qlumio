@@ -9,6 +9,13 @@ import OnboardingCard from "@/components/OnboardingCard";
 import QuickAddBox from "@/components/quick-add/QuickAddBox";
 import ThemeToggle from "@/components/ThemeToggle";
 import { QLogo } from "@/components/QlumioBrand";
+import {
+  AktiviteterIkon,
+  GjoremalIkon,
+  InnkjopIkon,
+  EiendelerIkon,
+  OkonomIkon,
+} from "@/components/ModuleIcons";
 
 // ─── Konstanter ───────────────────────────────────────────────────────────────
 
@@ -283,11 +290,11 @@ function FeedIcon({ type, className }: { type: FeedItemType; className?: string 
 // ─── Module-definisjon ────────────────────────────────────────────────────────
 
 const ALL_MODULES = [
-  { href: "/aktiviteter", title: "Aktiviteter",  roles: ["admin", "member"], Icon: ({ className }: { className?: string }) => <IconCalendar className={className} /> },
-  { href: "/oppgaver",    title: "Gjøremål",     roles: ["admin", "member"], Icon: ({ className }: { className?: string }) => <IconCheckSquare className={className} /> },
-  { href: "/innkjop",     title: "Innkjøp",      roles: ["admin", "member"], Icon: ({ className }: { className?: string }) => <IconShoppingCart className={className} /> },
-  { href: "/eiendeler",   title: "Eiendeler",    roles: ["admin"],           Icon: ({ className }: { className?: string }) => <IconWrench className={className} /> },
-  { href: "/okonomi",     title: "Økonomi",      roles: ["admin"],           Icon: ({ className }: { className?: string }) => <IconChart className={className} /> },
+  { href: "/aktiviteter", title: "Aktiviteter", roles: ["admin", "member"], Icon: AktiviteterIkon },
+  { href: "/oppgaver",    title: "Gjøremål",    roles: ["admin", "member"], Icon: GjoremalIkon },
+  { href: "/innkjop",     title: "Innkjøp",     roles: ["admin", "member"], Icon: InnkjopIkon },
+  { href: "/eiendeler",   title: "Eiendeler",   roles: ["admin"],           Icon: EiendelerIkon },
+  { href: "/okonomi",     title: "Økonomi",     roles: ["admin"],           Icon: OkonomIkon },
 ];
 
 // ─── Rotating hints ───────────────────────────────────────────────────────────
@@ -661,8 +668,8 @@ export default function HomeView({
                   href={mod.href}
                   className="flex items-center gap-3.5 p-4 bg-white hover:bg-gray-50 rounded-xl transition-colors group"
                 >
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors" style={{ backgroundColor: "rgba(139,92,246,0.08)", color: "var(--brand-purple)" }}>
-                    <mod.Icon className="w-5 h-5" />
+                  <div className="flex-shrink-0">
+                    <mod.Icon size={52} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold text-gray-900">{mod.title}</div>
