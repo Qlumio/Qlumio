@@ -168,6 +168,42 @@ export default function OmPage() {
           </div>
         </div>
 
+        {/* Cashflow og buffer */}
+        <div className="rounded-2xl border overflow-hidden border-violet-100">
+          <div className="px-7 pt-7 pb-5" style={{ background: "linear-gradient(135deg,#f5f3ff,#fdf4ff)" }}>
+            <Tag>Økonomi tett koblet til hverdagen</Tag>
+            <p className="text-gray-600 text-sm leading-relaxed">
+              Fremtidige behov Qlumio fanger opp — eller planlagte innkjøp du legger inn selv — er tett integrert med økonomimodulen. Kostnader legges automatisk inn i budsjettet, slik at de aldri er en overraskelse.
+            </p>
+            <p className="text-gray-600 text-sm leading-relaxed mt-3">
+              Vi vet at uforutsette kostnader dukker opp når du minst venter det. Derfor er vårt mål å sørge for best mulige forutsetninger for familieøkonomien.
+            </p>
+          </div>
+          <div className="bg-white px-7 py-5 space-y-4">
+            <div className="flex items-start gap-4 bg-violet-50 rounded-xl p-4">
+              <span className="text-2xl flex-shrink-0">📊</span>
+              <div>
+                <p className="text-sm font-semibold text-violet-800 mb-1">Automatisk cashflow-analyse</p>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Qlumio analyserer kontinuerlig familiens inntekter, faste utgifter og planlagte kostnader. Basert på dette foreslår systemet månedlige avsetninger — slik at dere alltid er forberedt på det som kommer.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-4 bg-cyan-50 rounded-xl p-4">
+              <span className="text-2xl flex-shrink-0">🛡️</span>
+              <div>
+                <p className="text-sm font-semibold text-cyan-800 mb-1">Buffer for det uventede</p>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Enten det er en uventet regning, en bil som trenger verkstedsbesøk, eller et barn som har vokst ut av vinterjakkene — Qlumio hjelper familien å bygge opp en buffer som faktisk holder tritt med virkeligheten.
+                </p>
+              </div>
+            </div>
+            <p className="text-gray-400 text-xs leading-relaxed italic px-1">
+              Planlagte innkjøp kobles automatisk til budsjettet. Ingen manuell dobbeltregistrering, ingen glemte poster.
+            </p>
+          </div>
+        </div>
+
         {/* Hva Qlumio skal bli */}
         <Section>
           <Tag>Hva Qlumio skal bli</Tag>
