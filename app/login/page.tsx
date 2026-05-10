@@ -105,6 +105,11 @@ export default function LoginPage() {
               Bli med med invitasjonskode
             </Link>
           </p>
+          <p className="pt-2">
+            <Link href="/om" className="text-gray-400 hover:text-gray-600 transition-colors">
+              Om Qlumio →
+            </Link>
+          </p>
         </div>
       </div>
 

@@ -131,7 +131,12 @@ export default function RegisterPage() {
 
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
     if (signUpError || !signUpData.session) {
-      setError(signUpError?.message ?? "Registrering feilet. E-posten kan allerede være i bruk.");
+      const msg = signUpError?.message ?? "";
+      if (msg.toLowerCase().includes("already registered") || msg.toLowerCase().includes("already been registered")) {
+        setError("Denne e-posten er allerede registrert. Logg inn i stedet, eller slett brukeren i Supabase Authentication.");
+      } else {
+        setError(msg || "Registrering feilet. Prøv igjen.");
+      }
       setLoading(false);
       return;
     }
