@@ -172,6 +172,7 @@ export default function BudgetView({
   );
 
   const incomeCat = categories.find((c) => c.type === "income");
+  const incomeCats = categories.filter((c) => c.type === "income");
   const expenseCats = categories.filter((c) => ["loan", "expense", "insurance", "savings"].includes(c.type));
 
   // IDs til avsetningskonto-budsjettposter — skal IKKE telles som utgifter
@@ -430,21 +431,22 @@ export default function BudgetView({
 
   // ── Legg til ny kategori ─────────────────────────────────────────────────────
 
-  const [addingCat, setAddingCat] = useState(false);
+  const [addingToGroup, setAddingToGroup] = useState<"income" | "expense" | null>(null);
   const [newCatName, setNewCatName] = useState("");
-  const [newCatType, setNewCatType] = useState<"income" | "expense" | "loan" | "insurance" | "savings">("expense");
+  const [newCatType, setNewCatType] = useState<"expense" | "loan" | "insurance" | "savings">("expense");
 
   const addCategory = async () => {
     const name = newCatName.trim();
-    if (!name) { setAddingCat(false); return; }
+    if (!name) { setAddingToGroup(null); return; }
+    const type = addingToGroup === "income" ? "income" : newCatType;
     const maxOrder = Math.max(0, ...categories.map((c) => c.sort_order));
     const { data: newCat } = await supabase.from("budget_categories")
-      .insert({ name, type: newCatType, sort_order: maxOrder + 1 })
+      .insert({ name, type, sort_order: maxOrder + 1 })
       .select().single();
     if (newCat) {
       setCategories((prev) => [...prev, { ...newCat, items: [] } as Category]);
     }
-    setNewCatName(""); setAddingCat(false);
+    setNewCatName(""); setAddingToGroup(null);
   };
 
   // ── Slett kategori ───────────────────────────────────────────────────────────
@@ -577,30 +579,39 @@ export default function BudgetView({
               >
                 {settingUp ? "Setter opp…" : "✨ Sett opp standard budsjett"}
               </button>
-              <button
-                onClick={() => setAddingCat(true)}
-                className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                Eller legg til en kategori manuelt
-              </button>
-              {addingCat && (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setAddingToGroup("income"); setNewCatName(""); }}
+                  className="text-sm text-emerald-600 hover:text-emerald-700 transition-colors border border-emerald-200 rounded-lg px-3 py-1.5"
+                >
+                  + Inntektskategori
+                </button>
+                <button
+                  onClick={() => { setAddingToGroup("expense"); setNewCatName(""); }}
+                  className="text-sm text-orange-500 hover:text-orange-600 transition-colors border border-orange-200 rounded-lg px-3 py-1.5"
+                >
+                  + Utgiftskategori
+                </button>
+              </div>
+              {addingToGroup && (
                 <div className="mt-4 flex items-center gap-2 flex-wrap justify-center">
                   <input
                     type="text" value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
-                    placeholder="Kategorinavn…" autoFocus
-                    onKeyDown={(e) => { if (e.key === "Enter") addCategory(); if (e.key === "Escape") setAddingCat(false); }}
+                    placeholder={addingToGroup === "income" ? "Inntektskategori…" : "Utgiftskategori…"} autoFocus
+                    onKeyDown={(e) => { if (e.key === "Enter") addCategory(); if (e.key === "Escape") setAddingToGroup(null); }}
                     className="bg-gray-100 rounded-lg px-3 py-2 text-sm outline-none ring-1 ring-blue-500 w-44"
                   />
-                  <select value={newCatType} onChange={(e) => setNewCatType(e.target.value as typeof newCatType)}
-                    className="bg-gray-100 rounded-lg px-3 py-2 text-sm outline-none ring-1 ring-gray-300">
-                    <option value="income">Inntekt</option>
-                    <option value="expense">Utgift</option>
-                    <option value="loan">Lån</option>
-                    <option value="insurance">Forsikring</option>
-                    <option value="savings">Sparing</option>
-                  </select>
+                  {addingToGroup === "expense" && (
+                    <select value={newCatType} onChange={(e) => setNewCatType(e.target.value as typeof newCatType)}
+                      className="bg-gray-100 rounded-lg px-3 py-2 text-sm outline-none ring-1 ring-gray-300">
+                      <option value="expense">Utgift</option>
+                      <option value="loan">Lån</option>
+                      <option value="insurance">Forsikring</option>
+                      <option value="savings">Sparing</option>
+                    </select>
+                  )}
                   <button onClick={addCategory} className="px-3 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600">Legg til</button>
-                  <button onClick={() => setAddingCat(false)} className="text-sm text-gray-400 hover:text-gray-600">Avbryt</button>
+                  <button onClick={() => setAddingToGroup(null)} className="text-sm text-gray-400 hover:text-gray-600">Avbryt</button>
                 </div>
               )}
             </div>
@@ -633,25 +644,27 @@ export default function BudgetView({
               </thead>
               <tbody>
 
-                {/* ── Budsjett-kategorier ── */}
-                {categories.map((cat) => {
+                {/* ── Budsjett-kategorier – gruppert ── */}
+
+                {/* ─── INNTEKT ─────────────────────────── */}
+                <tr className="border-t-2 border-emerald-200">
+                  <td colSpan={numCols} className="sticky left-0 bg-emerald-50 px-4 py-2">
+                    <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">📥 Inntekt</span>
+                  </td>
+                </tr>
+                {incomeCats.map((cat) => {
                   const isExpanded = expandedCats.has(cat.id);
                   return (
                     <React.Fragment key={cat.id}>
                       <tr onClick={() => toggleCat(cat.id)} className="cursor-pointer hover:bg-gray-50 border-t border-gray-100 group">
-                        <td className="sticky left-0 bg-white group-hover:bg-gray-50 px-4 py-2.5 transition-colors">
+                        <td className="sticky left-0 bg-white group-hover:bg-gray-50 px-4 py-2.5 pl-8 transition-colors">
                           <div className="flex items-center gap-2">
                             <span className={`text-gray-400 text-xs transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{cat.name}</span>
                             <span className="text-xs text-gray-300">{cat.items.length} poster</span>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); deleteCategory(cat.id); }}
-                              className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-400 p-0.5"
-                              title="Slett kategori"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
+                            <button onClick={(e) => { e.stopPropagation(); deleteCategory(cat.id); }}
+                              className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-400 p-0.5" title="Slett kategori">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                           </div>
                         </td>
@@ -662,16 +675,13 @@ export default function BudgetView({
                             {fmt(getCatMonthTotal(cat, col.year, col.month))}
                           </td>
                         ))}
-                        <td className="text-right px-2 py-2.5 text-sm font-semibold text-gray-500" onClick={(e) => e.stopPropagation()}>
-                          {fmt(getCatAnnualTotal(cat))}
-                        </td>
+                        <td className="text-right px-2 py-2.5 text-sm font-semibold text-gray-500" onClick={(e) => e.stopPropagation()}>{fmt(getCatAnnualTotal(cat))}</td>
                       </tr>
-
                       {isExpanded && (
                         <>
                           {cat.items.map((item) => (
                             <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50 group">
-                              <td className="sticky left-0 bg-gray-50 group-hover:bg-gray-50 px-4 py-1.5 pl-8">
+                              <td className="sticky left-0 bg-gray-50 group-hover:bg-gray-50 px-4 py-1.5 pl-12">
                                 {editNameId === item.id ? (
                                   <input type="text" value={editNameValue} onChange={(e) => setEditNameValue(e.target.value)}
                                     onBlur={() => saveItemName(item.id, cat.id)}
@@ -681,12 +691,8 @@ export default function BudgetView({
                                   <div className="flex items-center justify-between gap-2">
                                     <span className="text-sm text-gray-600">{item.name}</span>
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                                      <button onClick={() => startEditName(item)} className="text-gray-400 hover:text-blue-500 p-0.5">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                      </button>
-                                      <button onClick={() => deleteItem(item.id, cat.id)} className="text-gray-400 hover:text-red-500 p-0.5">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                      </button>
+                                      <button onClick={() => startEditName(item)} className="text-gray-400 hover:text-blue-500 p-0.5"><svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+                                      <button onClick={() => deleteItem(item.id, cat.id)} className="text-gray-400 hover:text-red-500 p-0.5"><svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                                     </div>
                                   </div>
                                 )}
@@ -697,8 +703,7 @@ export default function BudgetView({
                                 const isOvr = hasOverride(item.id, col.year, col.month);
                                 return (
                                   <td key={cellKey}
-                                    className={["text-right px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-200 transition-colors",
-                                      col.isCurrent ? "bg-gray-100" : "", isOvr ? "text-blue-600" : ""].filter(Boolean).join(" ")}
+                                    className={["text-right px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-200 transition-colors", col.isCurrent ? "bg-gray-100" : "", isOvr ? "text-blue-600" : ""].filter(Boolean).join(" ")}
                                     onClick={() => editKey !== cellKey && (setEditKey(cellKey), setEditValue(val === 0 ? "" : String(val)))}>
                                     {editKey === cellKey ? (
                                       <input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)}
@@ -715,7 +720,7 @@ export default function BudgetView({
                             </tr>
                           ))}
                           <tr className="border-b border-gray-200">
-                            <td colSpan={numCols} className="sticky left-0 px-4 py-1.5 pl-8 bg-gray-50">
+                            <td colSpan={numCols} className="sticky left-0 px-4 py-1.5 pl-12 bg-gray-50">
                               {addingToCatId === cat.id ? (
                                 <div className="flex items-center gap-2">
                                   <input type="text" placeholder="Navn på ny post…" value={newItemName} onChange={(e) => setNewItemName(e.target.value)}
@@ -738,6 +743,155 @@ export default function BudgetView({
                     </React.Fragment>
                   );
                 })}
+                {/* Legg til underkategori – Inntekt */}
+                <tr>
+                  <td colSpan={numCols} className="sticky left-0 bg-emerald-50/30 px-4 py-2 border-b border-emerald-100">
+                    {addingToGroup === "income" ? (
+                      <div className="flex items-center gap-2">
+                        <input type="text" value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
+                          placeholder="Underkategorinavn…" autoFocus
+                          onKeyDown={(e) => { if (e.key === "Enter") addCategory(); if (e.key === "Escape") setAddingToGroup(null); }}
+                          className="bg-gray-100 rounded-lg px-3 py-1.5 text-sm outline-none ring-1 ring-emerald-500 w-44" />
+                        <button onClick={addCategory} className="px-3 py-1.5 bg-emerald-500 text-white text-xs rounded-lg hover:bg-emerald-600">Legg til</button>
+                        <button onClick={() => { setAddingToGroup(null); setNewCatName(""); }} className="text-xs text-gray-400 hover:text-gray-600">Avbryt</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setAddingToGroup("income"); setNewCatName(""); }}
+                        className="text-xs text-emerald-600 hover:text-emerald-700 transition-colors flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                        Legg til underkategori
+                      </button>
+                    )}
+                  </td>
+                </tr>
+
+                <tr><td colSpan={numCols} className="py-2 bg-gray-50/80" /></tr>
+
+                {/* ─── UTGIFT ──────────────────────────── */}
+                <tr className="border-t-2 border-orange-200">
+                  <td colSpan={numCols} className="sticky left-0 bg-orange-50/60 px-4 py-2">
+                    <span className="text-xs font-bold text-orange-700 uppercase tracking-wider">📤 Utgift</span>
+                  </td>
+                </tr>
+                {expenseCats.map((cat) => {
+                  const isExpanded = expandedCats.has(cat.id);
+                  return (
+                    <React.Fragment key={cat.id}>
+                      <tr onClick={() => toggleCat(cat.id)} className="cursor-pointer hover:bg-gray-50 border-t border-gray-100 group">
+                        <td className="sticky left-0 bg-white group-hover:bg-gray-50 px-4 py-2.5 pl-8 transition-colors">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-gray-400 text-xs transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{cat.name}</span>
+                            <span className="text-xs text-gray-300">{cat.items.length} poster</span>
+                            <button onClick={(e) => { e.stopPropagation(); deleteCategory(cat.id); }}
+                              className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-400 p-0.5" title="Slett kategori">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </div>
+                        </td>
+                        {monthCols.map((col) => (
+                          <td key={`cs-${cat.id}-${col.year}-${col.month}`}
+                            className={`text-right px-2 py-2.5 text-sm font-semibold ${col.isCurrent ? "text-gray-900 bg-gray-100" : "text-gray-700"}`}
+                            onClick={(e) => e.stopPropagation()}>
+                            {fmt(getCatMonthTotal(cat, col.year, col.month))}
+                          </td>
+                        ))}
+                        <td className="text-right px-2 py-2.5 text-sm font-semibold text-gray-500" onClick={(e) => e.stopPropagation()}>{fmt(getCatAnnualTotal(cat))}</td>
+                      </tr>
+                      {isExpanded && (
+                        <>
+                          {cat.items.map((item) => (
+                            <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50 group">
+                              <td className="sticky left-0 bg-gray-50 group-hover:bg-gray-50 px-4 py-1.5 pl-12">
+                                {editNameId === item.id ? (
+                                  <input type="text" value={editNameValue} onChange={(e) => setEditNameValue(e.target.value)}
+                                    onBlur={() => saveItemName(item.id, cat.id)}
+                                    onKeyDown={(e) => { if (e.key === "Enter") saveItemName(item.id, cat.id); if (e.key === "Escape") setEditNameId(null); }}
+                                    autoFocus className="w-full bg-gray-100 rounded px-2 py-0.5 text-sm outline-none ring-1 ring-blue-500" />
+                                ) : (
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-sm text-gray-600">{item.name}</span>
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                      <button onClick={() => startEditName(item)} className="text-gray-400 hover:text-blue-500 p-0.5"><svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+                                      <button onClick={() => deleteItem(item.id, cat.id)} className="text-gray-400 hover:text-red-500 p-0.5"><svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                                    </div>
+                                  </div>
+                                )}
+                              </td>
+                              {monthCols.map((col) => {
+                                const cellKey = `${item.id}-${col.year}-${col.month}`;
+                                const val = getVal(item.id, col.year, col.month);
+                                const isOvr = hasOverride(item.id, col.year, col.month);
+                                return (
+                                  <td key={cellKey}
+                                    className={["text-right px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-200 transition-colors", col.isCurrent ? "bg-gray-100" : "", isOvr ? "text-blue-600" : ""].filter(Boolean).join(" ")}
+                                    onClick={() => editKey !== cellKey && (setEditKey(cellKey), setEditValue(val === 0 ? "" : String(val)))}>
+                                    {editKey === cellKey ? (
+                                      <input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)}
+                                        onBlur={() => saveCell(item.id, col.year, col.month)}
+                                        onKeyDown={(e) => { if (e.key === "Enter") saveCell(item.id, col.year, col.month); if (e.key === "Escape") setEditKey(null); }}
+                                        autoFocus className="w-full text-right bg-blue-100 rounded px-1 outline-none ring-1 ring-blue-500 text-sm" />
+                                    ) : (
+                                      <span className={isOvr ? "underline decoration-dotted" : ""}>{fmt(val)}</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                              <td className="text-right px-2 py-1.5 text-sm text-gray-400">{fmt(getAnnualTotal(item.id))}</td>
+                            </tr>
+                          ))}
+                          <tr className="border-b border-gray-200">
+                            <td colSpan={numCols} className="sticky left-0 px-4 py-1.5 pl-12 bg-gray-50">
+                              {addingToCatId === cat.id ? (
+                                <div className="flex items-center gap-2">
+                                  <input type="text" placeholder="Navn på ny post…" value={newItemName} onChange={(e) => setNewItemName(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === "Enter") addItem(cat.id); if (e.key === "Escape") { setAddingToCatId(null); setNewItemName(""); } }}
+                                    autoFocus className="bg-gray-100 rounded px-2 py-1 text-sm outline-none ring-1 ring-blue-500 w-48" />
+                                  <button onClick={() => addItem(cat.id)} className="text-xs text-blue-500 hover:text-blue-600">Legg til</button>
+                                  <button onClick={() => { setAddingToCatId(null); setNewItemName(""); }} className="text-xs text-gray-400 hover:text-gray-700">Avbryt</button>
+                                </div>
+                              ) : (
+                                <button onClick={() => { setAddingToCatId(cat.id); setNewItemName(""); }}
+                                  className="text-xs text-gray-400 hover:text-gray-500 transition-colors flex items-center gap-1">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                  Legg til post
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        </>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+                {/* Legg til underkategori – Utgift */}
+                <tr>
+                  <td colSpan={numCols} className="sticky left-0 bg-orange-50/20 px-4 py-2 border-b border-orange-100">
+                    {addingToGroup === "expense" ? (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <input type="text" value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
+                          placeholder="Underkategorinavn…" autoFocus
+                          onKeyDown={(e) => { if (e.key === "Enter") addCategory(); if (e.key === "Escape") setAddingToGroup(null); }}
+                          className="bg-gray-100 rounded-lg px-3 py-1.5 text-sm outline-none ring-1 ring-orange-400 w-44" />
+                        <select value={newCatType} onChange={(e) => setNewCatType(e.target.value as typeof newCatType)}
+                          className="bg-gray-100 rounded-lg px-3 py-1.5 text-sm outline-none ring-1 ring-gray-300">
+                          <option value="expense">Utgift</option>
+                          <option value="loan">Lån</option>
+                          <option value="insurance">Forsikring</option>
+                          <option value="savings">Sparing</option>
+                        </select>
+                        <button onClick={addCategory} className="px-3 py-1.5 bg-orange-400 text-white text-xs rounded-lg hover:bg-orange-500">Legg til</button>
+                        <button onClick={() => { setAddingToGroup(null); setNewCatName(""); }} className="text-xs text-gray-400 hover:text-gray-600">Avbryt</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setAddingToGroup("expense"); setNewCatName(""); }}
+                        className="text-xs text-orange-500 hover:text-orange-600 transition-colors flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                        Legg til underkategori
+                      </button>
+                    )}
+                  </td>
+                </tr>
 
                 {/* ── Engangsutgifter ── */}
                 <tr><td colSpan={numCols} className="py-1" /></tr>
@@ -1037,37 +1191,6 @@ export default function BudgetView({
             </table>
           </div>
 
-          {/* Legg til kategori */}
-          <div className="px-4 py-4 border-t border-gray-100">
-            {addingCat ? (
-              <div className="flex items-center gap-2 flex-wrap">
-                <input
-                  type="text" value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
-                  placeholder="Kategorinavn…" autoFocus
-                  onKeyDown={(e) => { if (e.key === "Enter") addCategory(); if (e.key === "Escape") setAddingCat(false); }}
-                  className="bg-gray-100 rounded-lg px-3 py-2 text-sm outline-none ring-1 ring-blue-500 w-44"
-                />
-                <select value={newCatType} onChange={(e) => setNewCatType(e.target.value as typeof newCatType)}
-                  className="bg-gray-100 rounded-lg px-3 py-2 text-sm outline-none ring-1 ring-gray-300">
-                  <option value="income">Inntekt</option>
-                  <option value="expense">Utgift</option>
-                  <option value="loan">Lån</option>
-                  <option value="insurance">Forsikring</option>
-                  <option value="savings">Sparing</option>
-                </select>
-                <button onClick={addCategory} className="px-3 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600">Legg til</button>
-                <button onClick={() => { setAddingCat(false); setNewCatName(""); }} className="text-sm text-gray-400 hover:text-gray-600">Avbryt</button>
-              </div>
-            ) : (
-              <button onClick={() => setAddingCat(true)}
-                className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Legg til kategori
-              </button>
-            )}
-          </div>
           </>
           )}
         </>
