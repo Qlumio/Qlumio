@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Hardkodet her for å unngå import av browser-kode i Edge Runtime
 const AUTH_COOKIE_ACCESS = "qlumio-access-token";
-const PUBLIC_PATHS = ["/login", "/register", "/join"];
+const PUBLIC_PATHS = ["/login", "/register", "/join", "/om"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
