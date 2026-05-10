@@ -11,7 +11,7 @@ import { QlumioWordmark } from "@/components/QlumioBrand";
 type Step = "account" | "family" | "income" | "expenses" | "savings";
 
 type IncomeRow  = { name: string; amount: string };
-type ExpenseRow = { name: string; amount: string; category: string; catType: string };
+type ExpenseRow = { name: string; amount: string; category: string; catType: string; sortOrder: number };
 type SavingRow  = { name: string; balance: string; monthly: string };
 
 // ── Konstanter ───────────────────────────────────────────────────────────────
@@ -37,34 +37,21 @@ const ROLES = [
   { value: "other",       label: "Annet" },
 ];
 
-// Standard utgiftsposter (vises med tomme felter brukeren kan fylle ut)
-const EXPENSE_PRESETS: { category: string; catType: string; items: string[] }[] = [
-  {
-    category: "Bolig",
-    catType: "expense",
-    items: ["Husleie / lån", "Strøm", "Internett / TV", "Forsikring bolig"],
-  },
-  {
-    category: "Transport",
-    catType: "expense",
-    items: ["Drivstoff / lading", "Bilforsikring", "Kollektivtransport", "Bompenger"],
-  },
-  {
-    category: "Abonnementer",
-    catType: "expense",
-    items: ["Strømmetjenester", "Treningssenter", "Mobilabonnement"],
-  },
-  {
-    category: "Barn",
-    catType: "expense",
-    items: ["Barnehage / SFO", "Klær og utstyr", "Aktiviteter"],
-  },
+// Standard utgiftsposter – catType bestemmer kategori i budsjettmodulen
+const EXPENSE_PRESETS: { category: string; catType: string; sortOrder: number; items: string[] }[] = [
+  { category: "Lån",               catType: "loan",      sortOrder: 2, items: ["Boliglån", "Billån", "Studielån", "Forbrukslån"] },
+  { category: "Bolig",             catType: "expense",   sortOrder: 3, items: ["Husleie", "Strøm", "Internett / TV"] },
+  { category: "Forsikringer",      catType: "insurance", sortOrder: 4, items: ["Bilforsikring", "Innboforsikring", "Reiseforsikring", "Personforsikring"] },
+  { category: "Mat og dagligvarer", catType: "expense",  sortOrder: 5, items: ["Dagligvarer", "Restaurant / takeaway"] },
+  { category: "Transport",         catType: "expense",   sortOrder: 6, items: ["Drivstoff / lading", "Kollektivtransport", "Bompenger"] },
+  { category: "Abonnementer",      catType: "expense",   sortOrder: 7, items: ["Strømmetjenester", "Treningssenter", "Mobilabonnement"] },
+  { category: "Barn",              catType: "expense",   sortOrder: 8, items: ["Barnehage / SFO", "Klær og utstyr", "Aktiviteter"] },
+  { category: "Sparing",           catType: "savings",   sortOrder: 9, items: ["BSU", "Pensjon", "Aksjer / fond"] },
 ];
 
-// Lag initiell liste av ExpenseRow fra presets
 function buildExpenseRows(): ExpenseRow[] {
   return EXPENSE_PRESETS.flatMap((g) =>
-    g.items.map((name) => ({ name, amount: "", category: g.category, catType: g.catType }))
+    g.items.map((name) => ({ name, amount: "", category: g.category, catType: g.catType, sortOrder: g.sortOrder }))
   );
 }
 
@@ -164,7 +151,13 @@ export default function RegisterPage() {
     }
 
     setLoading(false);
-    setStep("income");
+    // Kun foreldre går gjennom den finansielle wizarden
+    if (memberRole === "parent") {
+      setStep("income");
+    } else {
+      router.push("/");
+      router.refresh();
+    }
   };
 
   // ── Hjelpefunksjon: hent eller opprett kategori ────────────────────────────
@@ -218,15 +211,14 @@ export default function RegisterPage() {
     const filled = expenseRows.filter((r) => parseFloat(r.amount) > 0);
 
     if (filled.length > 0) {
-      const groups: Record<string, { catType: string; items: typeof filled }> = {};
+      const groups: Record<string, { catType: string; sortOrder: number; items: typeof filled }> = {};
       for (const row of filled) {
-        if (!groups[row.category]) groups[row.category] = { catType: row.catType, items: [] };
+        if (!groups[row.category]) groups[row.category] = { catType: row.catType, sortOrder: row.sortOrder, items: [] };
         groups[row.category].items.push(row);
       }
 
-      let sortOrder = 2;
-      for (const [catName, { catType, items }] of Object.entries(groups)) {
-        const catId = await getOrCreateCategory(catName, catType, sortOrder++);
+      for (const [catName, { catType, sortOrder, items }] of Object.entries(groups)) {
+        const catId = await getOrCreateCategory(catName, catType, sortOrder);
         if (catId) {
           const { data: existing } = await supabase.from("budget_items").select("sort_order").eq("category_id", catId).order("sort_order", { ascending: false }).limit(1);
           let nextOrder = (existing?.[0]?.sort_order ?? 0) + 1;
