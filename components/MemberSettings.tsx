@@ -40,10 +40,12 @@ type EditForm = {
 
 type Props = {
   members: FamilyMember[];
+  currentUserPermissionLevel: string;
 };
 
-export default function MemberSettings({ members: initialMembers }: Props) {
+export default function MemberSettings({ members: initialMembers, currentUserPermissionLevel }: Props) {
   const [members, setMembers] = useState<FamilyMember[]>(initialMembers);
+  const isSuperuser = ["owner", "admin"].includes(currentUserPermissionLevel);
 
   // --- Legg til nytt medlem ---
   const [newName, setNewName] = useState("");
@@ -275,21 +277,30 @@ export default function MemberSettings({ members: initialMembers }: Props) {
                       </div>
                     </div>
 
-                    {/* Tilgangsnivå */}
+                    {/* Tilgangsnivå – kun superbruker kan endre dette */}
                     <div>
                       <label className="text-xs text-gray-500 mb-1 block">Tilgangsnivå</label>
-                      <select
-                        value={editForm.permission_level}
-                        onChange={(e) => setEditForm((f) => ({ ...f, permission_level: e.target.value, pin: "", pin_confirm: "" }))}
-                        className="w-full p-2 rounded-lg bg-gray-100 outline-none text-sm"
-                      >
-                        <option value="member">👤 Familiemedlem – Aktiviteter og Innkjøp</option>
-                        <option value="admin">🔐 Super Bruker – Full tilgang</option>
-                      </select>
+                      {isSuperuser ? (
+                        <select
+                          value={editForm.permission_level}
+                          onChange={(e) => setEditForm((f) => ({ ...f, permission_level: e.target.value, pin: "", pin_confirm: "" }))}
+                          className="w-full p-2 rounded-lg bg-gray-100 outline-none text-sm"
+                        >
+                          <option value="member">👤 Familiemedlem – Aktiviteter og Innkjøp</option>
+                          <option value="admin">🔑 Superbruker – Full tilgang</option>
+                        </select>
+                      ) : (
+                        <div className="w-full p-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-500">
+                          {editForm.permission_level === "owner" || editForm.permission_level === "admin"
+                            ? "🔑 Superbruker"
+                            : "👤 Familiemedlem"}
+                          <span className="ml-2 text-xs text-gray-400">(kun superbruker kan endre dette)</span>
+                        </div>
+                      )}
                     </div>
 
-                    {/* PIN – kun for admin */}
-                    {editForm.permission_level === "admin" && (
+                    {/* PIN – kun for admin/owner */}
+                    {isSuperuser && editForm.permission_level === "admin" && (
                       <div className="bg-blue-50 rounded-lg p-3 space-y-2">
                         <p className="text-xs text-blue-600 font-medium">
                           {member.pin ? "Endre PIN (la stå tomt for å beholde nåværende)" : "Sett PIN for Super Bruker"}
@@ -363,8 +374,10 @@ export default function MemberSettings({ members: initialMembers }: Props) {
                         {member.phone && <span>· 📞 {member.phone}</span>}
                       </div>
                       <div className="text-xs mt-0.5">
-                        {member.permission_level === "admin" ? (
-                          <span className="text-blue-500">🔐 Super Bruker</span>
+                        {["owner", "admin"].includes(member.permission_level) ? (
+                          <span className="text-violet-500 font-medium">
+                            {member.permission_level === "owner" ? "🔑 Superbruker (eier)" : "🔑 Superbruker"}
+                          </span>
                         ) : (
                           <span className="text-gray-400">👤 Familiemedlem</span>
                         )}

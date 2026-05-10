@@ -12,6 +12,8 @@ export const metadata: Metadata = {
 export default async function InnstillingerPage() {
   const supabase = await createServerClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+
   const [{ data: members }, { data: inviteCodes }] = await Promise.all([
     supabase.from("family_members").select("*").order("created_at"),
     supabase
@@ -20,6 +22,9 @@ export default async function InnstillingerPage() {
       .order("created_at", { ascending: false })
       .limit(10),
   ]);
+
+  const currentMember = members?.find((m) => m.user_id === user?.id);
+  const currentUserPermissionLevel = currentMember?.permission_level ?? "member";
 
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
@@ -34,7 +39,7 @@ export default async function InnstillingerPage() {
       </div>
 
       <div className="max-w-2xl space-y-8">
-        <MemberSettings members={members ?? []} />
+        <MemberSettings members={members ?? []} currentUserPermissionLevel={currentUserPermissionLevel} />
         <InviteCodeManager initialCodes={inviteCodes ?? []} />
 
         {/* Økonomi-oppsett */}

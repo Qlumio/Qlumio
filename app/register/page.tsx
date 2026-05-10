@@ -350,12 +350,30 @@ export default function RegisterPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Din rolle</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Din rolle i familien</label>
                   <select value={memberRole} onChange={(e) => setMemberRole(e.target.value)}
                     className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white">
                     {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
                   </select>
                 </div>
+
+                {/* Tilgangsnivå */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Tilgangsnivå</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="flex-1 flex flex-col items-center gap-1 px-3 py-3 rounded-xl border-2 text-sm font-medium transition-all border-violet-500 bg-violet-50 text-violet-700"
+                    >
+                      <span className="text-lg">🔑</span>
+                      <span>Superbruker</span>
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2 leading-relaxed">
+                    Som den som oppretter familien registreres du automatisk som Superbruker. Kun du kan gi denne tilgangen til andre familiemedlemmer i etterkant.
+                  </p>
+                </div>
+
                 {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
                 <div className="flex gap-3">
                   <button type="button" onClick={() => { setStep("account"); setError(""); }}
