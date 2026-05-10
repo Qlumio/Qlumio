@@ -290,11 +290,11 @@ function FeedIcon({ type, className }: { type: FeedItemType; className?: string 
 // ─── Module-definisjon ────────────────────────────────────────────────────────
 
 const ALL_MODULES = [
-  { href: "/aktiviteter", title: "Aktiviteter", roles: ["admin", "member"], Icon: AktiviteterIkon },
-  { href: "/oppgaver",    title: "Gjøremål",    roles: ["admin", "member"], Icon: GjoremalIkon },
-  { href: "/innkjop",     title: "Innkjøp",     roles: ["admin", "member"], Icon: InnkjopIkon },
-  { href: "/eiendeler",   title: "Eiendeler",   roles: ["admin"],           Icon: EiendelerIkon },
-  { href: "/okonomi",     title: "Økonomi",     roles: ["admin"],           Icon: OkonomIkon },
+  { href: "/aktiviteter", title: "Aktiviteter", roles: ["owner", "admin", "member"], Icon: AktiviteterIkon },
+  { href: "/oppgaver",    title: "Gjøremål",    roles: ["owner", "admin", "member"], Icon: GjoremalIkon },
+  { href: "/innkjop",     title: "Innkjøp",     roles: ["owner", "admin", "member"], Icon: InnkjopIkon },
+  { href: "/eiendeler",   title: "Eiendeler",   roles: ["owner", "admin"],           Icon: EiendelerIkon },
+  { href: "/okonomi",     title: "Økonomi",     roles: ["owner", "admin"],           Icon: OkonomIkon },
 ];
 
 // ─── Rotating hints ───────────────────────────────────────────────────────────
@@ -370,7 +370,7 @@ export default function HomeView({
   const freshUser = currentUser
     ? (members.find((m) => m.id === currentUser.id) ?? currentUser)
     : null;
-  const isAdmin = freshUser?.permission_level === "admin";
+  const isAdmin = ["owner", "admin"].includes(freshUser?.permission_level ?? "");
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const allCandidates = useMemo((): FeedItem[] => {
