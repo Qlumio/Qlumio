@@ -133,6 +133,8 @@ export default function BudgetView({
 
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [editCatKey, setEditCatKey] = useState<string | null>(null);
+  const [editCatValue, setEditCatValue] = useState("");
   const [editNameId, setEditNameId] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState("");
   const [addingToCatId, setAddingToCatId] = useState<string | null>(null);
@@ -397,6 +399,46 @@ export default function BudgetView({
     setEditKey(null);
   };
 
+  // Direkte redigering på kategorirad (0–1 poster) ──────────────────────────
+  const saveCatCell = async (catId: string, year: number, month: number) => {
+    const numValue = Math.round(parseFloat(editCatValue) || 0);
+    const cat = categories.find((c) => c.id === catId);
+    if (!cat) { setEditCatKey(null); return; }
+
+    let itemId: string;
+    if (cat.items.length === 0) {
+      // Opprett én standardpost med kategorinavnet
+      const maxOrder = 1;
+      const { data: newItem } = await supabase
+        .from("budget_items")
+        .insert({ category_id: catId, name: cat.name, sort_order: maxOrder, monthly_default: 0, source: "manual" })
+        .select()
+        .single();
+      if (!newItem) { setEditCatKey(null); return; }
+      setCategories((prev) => prev.map((c) => c.id === catId ? { ...c, items: [newItem as Item] } : c));
+      setDefaults((prev) => ({ ...prev, [(newItem as Item).id]: 0 }));
+      itemId = (newItem as Item).id;
+    } else {
+      itemId = cat.items[0].id;
+    }
+
+    // Gjenbruk saveCell-logikken
+    const key = `${itemId}-${year}-${month}`;
+    const currentDefault = defaults[itemId] ?? 0;
+    const hasAnyOverride = Object.keys(overrides).some((k) => k.startsWith(`${itemId}-${year}-`));
+    if (currentDefault === 0 && !hasAnyOverride) {
+      await supabase.from("budget_items").update({ monthly_default: numValue }).eq("id", itemId);
+      setDefaults((prev) => ({ ...prev, [itemId]: numValue }));
+    } else if (numValue === currentDefault) {
+      await supabase.from("budget_overrides").delete().match({ item_id: itemId, year, month });
+      setOverrides((prev) => { const n = { ...prev }; delete n[key]; return n; });
+    } else {
+      await supabase.from("budget_overrides").upsert({ item_id: itemId, year, month, amount: numValue });
+      setOverrides((prev) => ({ ...prev, [key]: numValue }));
+    }
+    setEditCatKey(null);
+  };
+
   const startEditName = (item: Item) => { setEditNameId(item.id); setEditNameValue(item.name); };
 
   const saveItemName = async (itemId: string, categoryId: string) => {
@@ -656,26 +698,57 @@ export default function BudgetView({
                   const isExpanded = expandedCats.has(cat.id);
                   return (
                     <React.Fragment key={cat.id}>
-                      <tr onClick={() => toggleCat(cat.id)} className="cursor-pointer hover:bg-gray-50 border-t border-gray-100 group">
+                      <tr onClick={() => cat.items.length > 1 && toggleCat(cat.id)}
+                        className={`hover:bg-gray-50 border-t border-gray-100 group ${cat.items.length > 1 ? "cursor-pointer" : ""}`}>
                         <td className="sticky left-0 bg-white group-hover:bg-gray-50 px-4 py-2.5 pl-8 transition-colors">
                           <div className="flex items-center gap-2">
-                            <span className={`text-gray-400 text-xs transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
+                            {cat.items.length > 1
+                              ? <span className={`text-gray-400 text-xs transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
+                              : <span className="text-gray-200 text-xs">—</span>
+                            }
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{cat.name}</span>
-                            <span className="text-xs text-gray-300">{cat.items.length} poster</span>
+                            {cat.items.length > 1 && <span className="text-xs text-gray-300">{cat.items.length} poster</span>}
                             <button onClick={(e) => { e.stopPropagation(); deleteCategory(cat.id); }}
                               className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-400 p-0.5" title="Slett kategori">
                               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                           </div>
                         </td>
-                        {monthCols.map((col) => (
-                          <td key={`cs-${cat.id}-${col.year}-${col.month}`}
-                            className={`text-right px-2 py-2.5 text-sm font-semibold ${col.isCurrent ? "text-gray-900 bg-gray-100" : "text-gray-700"}`}
-                            onClick={(e) => e.stopPropagation()}>
-                            {fmt(getCatMonthTotal(cat, col.year, col.month))}
-                          </td>
-                        ))}
-                        <td className="text-right px-2 py-2.5 text-sm font-semibold text-gray-500" onClick={(e) => e.stopPropagation()}>{fmt(getCatAnnualTotal(cat))}</td>
+                        {monthCols.map((col) => {
+                          if (cat.items.length <= 1) {
+                            const catCellKey = `cat-${cat.id}-${col.year}-${col.month}`;
+                            const singleItem = cat.items[0];
+                            const val = singleItem ? getVal(singleItem.id, col.year, col.month) : 0;
+                            const isOvr = singleItem ? hasOverride(singleItem.id, col.year, col.month) : false;
+                            return (
+                              <td key={`cs-${cat.id}-${col.year}-${col.month}`}
+                                className={["text-right px-2 py-2.5 text-sm font-semibold cursor-pointer hover:bg-gray-200 transition-colors",
+                                  col.isCurrent ? "bg-gray-100" : "", isOvr ? "text-blue-600" : "text-gray-700"].filter(Boolean).join(" ")}
+                                onClick={(e) => { e.stopPropagation(); if (editCatKey !== catCellKey) { setEditCatKey(catCellKey); setEditCatValue(val === 0 ? "" : String(val)); } }}>
+                                {editCatKey === catCellKey ? (
+                                  <input type="number" value={editCatValue} onChange={(e) => setEditCatValue(e.target.value)}
+                                    onBlur={() => saveCatCell(cat.id, col.year, col.month)}
+                                    onKeyDown={(e) => { if (e.key === "Enter") saveCatCell(cat.id, col.year, col.month); if (e.key === "Escape") setEditCatKey(null); }}
+                                    autoFocus className="w-full text-right bg-blue-100 rounded px-1 outline-none ring-1 ring-blue-500 text-sm" />
+                                ) : (
+                                  <span className={isOvr ? "underline decoration-dotted" : ""}>{fmt(val)}</span>
+                                )}
+                              </td>
+                            );
+                          }
+                          return (
+                            <td key={`cs-${cat.id}-${col.year}-${col.month}`}
+                              className={`text-right px-2 py-2.5 text-sm font-semibold ${col.isCurrent ? "text-gray-900 bg-gray-100" : "text-gray-700"}`}
+                              onClick={(e) => e.stopPropagation()}>
+                              {fmt(getCatMonthTotal(cat, col.year, col.month))}
+                            </td>
+                          );
+                        })}
+                        <td className="text-right px-2 py-2.5 text-sm font-semibold text-gray-500" onClick={(e) => e.stopPropagation()}>
+                          {cat.items.length <= 1 && cat.items[0]
+                            ? fmt(getAnnualTotal(cat.items[0].id))
+                            : fmt(getCatAnnualTotal(cat))}
+                        </td>
                       </tr>
                       {isExpanded && (
                         <>
@@ -777,26 +850,57 @@ export default function BudgetView({
                   const isExpanded = expandedCats.has(cat.id);
                   return (
                     <React.Fragment key={cat.id}>
-                      <tr onClick={() => toggleCat(cat.id)} className="cursor-pointer hover:bg-gray-50 border-t border-gray-100 group">
+                      <tr onClick={() => cat.items.length > 1 && toggleCat(cat.id)}
+                        className={`hover:bg-gray-50 border-t border-gray-100 group ${cat.items.length > 1 ? "cursor-pointer" : ""}`}>
                         <td className="sticky left-0 bg-white group-hover:bg-gray-50 px-4 py-2.5 pl-8 transition-colors">
                           <div className="flex items-center gap-2">
-                            <span className={`text-gray-400 text-xs transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
+                            {cat.items.length > 1
+                              ? <span className={`text-gray-400 text-xs transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
+                              : <span className="text-gray-200 text-xs">—</span>
+                            }
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{cat.name}</span>
-                            <span className="text-xs text-gray-300">{cat.items.length} poster</span>
+                            {cat.items.length > 1 && <span className="text-xs text-gray-300">{cat.items.length} poster</span>}
                             <button onClick={(e) => { e.stopPropagation(); deleteCategory(cat.id); }}
                               className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-400 p-0.5" title="Slett kategori">
                               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                           </div>
                         </td>
-                        {monthCols.map((col) => (
-                          <td key={`cs-${cat.id}-${col.year}-${col.month}`}
-                            className={`text-right px-2 py-2.5 text-sm font-semibold ${col.isCurrent ? "text-gray-900 bg-gray-100" : "text-gray-700"}`}
-                            onClick={(e) => e.stopPropagation()}>
-                            {fmt(getCatMonthTotal(cat, col.year, col.month))}
-                          </td>
-                        ))}
-                        <td className="text-right px-2 py-2.5 text-sm font-semibold text-gray-500" onClick={(e) => e.stopPropagation()}>{fmt(getCatAnnualTotal(cat))}</td>
+                        {monthCols.map((col) => {
+                          if (cat.items.length <= 1) {
+                            const catCellKey = `cat-${cat.id}-${col.year}-${col.month}`;
+                            const singleItem = cat.items[0];
+                            const val = singleItem ? getVal(singleItem.id, col.year, col.month) : 0;
+                            const isOvr = singleItem ? hasOverride(singleItem.id, col.year, col.month) : false;
+                            return (
+                              <td key={`cs-${cat.id}-${col.year}-${col.month}`}
+                                className={["text-right px-2 py-2.5 text-sm font-semibold cursor-pointer hover:bg-gray-200 transition-colors",
+                                  col.isCurrent ? "bg-gray-100" : "", isOvr ? "text-blue-600" : "text-gray-700"].filter(Boolean).join(" ")}
+                                onClick={(e) => { e.stopPropagation(); if (editCatKey !== catCellKey) { setEditCatKey(catCellKey); setEditCatValue(val === 0 ? "" : String(val)); } }}>
+                                {editCatKey === catCellKey ? (
+                                  <input type="number" value={editCatValue} onChange={(e) => setEditCatValue(e.target.value)}
+                                    onBlur={() => saveCatCell(cat.id, col.year, col.month)}
+                                    onKeyDown={(e) => { if (e.key === "Enter") saveCatCell(cat.id, col.year, col.month); if (e.key === "Escape") setEditCatKey(null); }}
+                                    autoFocus className="w-full text-right bg-blue-100 rounded px-1 outline-none ring-1 ring-blue-500 text-sm" />
+                                ) : (
+                                  <span className={isOvr ? "underline decoration-dotted" : ""}>{fmt(val)}</span>
+                                )}
+                              </td>
+                            );
+                          }
+                          return (
+                            <td key={`cs-${cat.id}-${col.year}-${col.month}`}
+                              className={`text-right px-2 py-2.5 text-sm font-semibold ${col.isCurrent ? "text-gray-900 bg-gray-100" : "text-gray-700"}`}
+                              onClick={(e) => e.stopPropagation()}>
+                              {fmt(getCatMonthTotal(cat, col.year, col.month))}
+                            </td>
+                          );
+                        })}
+                        <td className="text-right px-2 py-2.5 text-sm font-semibold text-gray-500" onClick={(e) => e.stopPropagation()}>
+                          {cat.items.length <= 1 && cat.items[0]
+                            ? fmt(getAnnualTotal(cat.items[0].id))
+                            : fmt(getCatAnnualTotal(cat))}
+                        </td>
                       </tr>
                       {isExpanded && (
                         <>
