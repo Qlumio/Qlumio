@@ -167,6 +167,23 @@ export default function RegisterPage() {
     setStep("income");
   };
 
+  // ── Hjelpefunksjon: hent eller opprett kategori ────────────────────────────
+
+  const getOrCreateCategory = async (name: string, type: string, sortOrder: number): Promise<string | null> => {
+    const { data: existing } = await supabase
+      .from("budget_categories")
+      .select("id")
+      .eq("name", name)
+      .maybeSingle();
+    if (existing) return existing.id;
+    const { data: created } = await supabase
+      .from("budget_categories")
+      .insert({ name, type, sort_order: sortOrder })
+      .select("id")
+      .single();
+    return created?.id ?? null;
+  };
+
   // ── Steg 3: Lagre inntekter ─────────────────────────────────────────────────
 
   const handleIncomeStep = async () => {
@@ -174,20 +191,16 @@ export default function RegisterPage() {
     const filled = incomeRows.filter((r) => r.name.trim() && parseFloat(r.amount) > 0);
 
     if (filled.length > 0) {
-      // Opprett "Inntekter"-kategori
-      const { data: cat } = await supabase
-        .from("budget_categories")
-        .insert({ name: "Inntekter", type: "income", sort_order: 1 })
-        .select()
-        .single();
-
-      if (cat) {
-        for (let i = 0; i < filled.length; i++) {
+      const catId = await getOrCreateCategory("Inntekter", "income", 1);
+      if (catId) {
+        const { data: existing } = await supabase.from("budget_items").select("sort_order").eq("category_id", catId).order("sort_order", { ascending: false }).limit(1);
+        let nextOrder = (existing?.[0]?.sort_order ?? 0) + 1;
+        for (const row of filled) {
           await supabase.from("budget_items").insert({
-            category_id: cat.id,
-            name: filled[i].name.trim(),
-            sort_order: i + 1,
-            monthly_default: Math.round(parseFloat(filled[i].amount)),
+            category_id: catId,
+            name: row.name.trim(),
+            sort_order: nextOrder++,
+            monthly_default: Math.round(parseFloat(row.amount)),
             source: "manual",
           });
         }
@@ -205,28 +218,24 @@ export default function RegisterPage() {
     const filled = expenseRows.filter((r) => parseFloat(r.amount) > 0);
 
     if (filled.length > 0) {
-      // Grupper per kategori
       const groups: Record<string, { catType: string; items: typeof filled }> = {};
       for (const row of filled) {
         if (!groups[row.category]) groups[row.category] = { catType: row.catType, items: [] };
         groups[row.category].items.push(row);
       }
 
-      let sortOrder = 2; // Inntekter er 1
+      let sortOrder = 2;
       for (const [catName, { catType, items }] of Object.entries(groups)) {
-        const { data: cat } = await supabase
-          .from("budget_categories")
-          .insert({ name: catName, type: catType, sort_order: sortOrder++ })
-          .select()
-          .single();
-
-        if (cat) {
-          for (let i = 0; i < items.length; i++) {
+        const catId = await getOrCreateCategory(catName, catType, sortOrder++);
+        if (catId) {
+          const { data: existing } = await supabase.from("budget_items").select("sort_order").eq("category_id", catId).order("sort_order", { ascending: false }).limit(1);
+          let nextOrder = (existing?.[0]?.sort_order ?? 0) + 1;
+          for (const row of items) {
             await supabase.from("budget_items").insert({
-              category_id: cat.id,
-              name: items[i].name,
-              sort_order: i + 1,
-              monthly_default: Math.round(parseFloat(items[i].amount)),
+              category_id: catId,
+              name: row.name,
+              sort_order: nextOrder++,
+              monthly_default: Math.round(parseFloat(row.amount)),
               source: "manual",
             });
           }
