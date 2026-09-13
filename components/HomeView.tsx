@@ -406,7 +406,32 @@ export default function HomeView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allCandidates, freshUser?.id]);
 
-  if (!isLoaded || !currentUser || !freshUser) return null;
+  if (!isLoaded) {
+    return (
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-3 border-gray-200 border-t-purple-500 rounded-full animate-spin" />
+      </main>
+    );
+  }
+
+  if (!currentUser || !freshUser) {
+    return (
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+        <div className="text-center max-w-xs">
+          <p className="text-gray-500 text-sm mb-4">
+            Fant ikke brukerprofilen din. Prøv å laste siden på nytt.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
+            style={{ background: "linear-gradient(135deg, #8B5CF6, #22D3EE)" }}
+          >
+            Last inn på nytt
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   const visibleModules = ALL_MODULES.filter((mod) =>
     mod.roles.includes(freshUser.permission_level)

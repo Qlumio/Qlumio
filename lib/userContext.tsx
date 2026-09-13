@@ -84,11 +84,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
             setUser(data.session.user);
             await loadMemberData(data.session.user, data.session.access_token, data.session.refresh_token);
           } else {
-            // Ugyldig/utløpt sesjon – rydd opp slik at vi ikke sitter fast
-            clearAuthCookies();
+            // IKKE slett cookies her – kan være en forbigående nettverksfeil,
+            // ikke nødvendigvis en faktisk ugyldig sesjon. Serveren (middleware)
+            // sjekker allerede utløpstid og rydder opp der det faktisk trengs.
+            // Å slette cookies aggressivt her kan logge brukeren stille ut
+            // selv om sesjonen egentlig var gyldig.
+            console.error("Kunne ikke gjenopprette sesjon:", error?.message);
           }
-        } catch {
-          clearAuthCookies();
+        } catch (e) {
+          console.error("Feil ved sesjonsgjenoppretting:", e);
         }
       }
 
