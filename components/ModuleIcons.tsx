@@ -220,13 +220,28 @@ export function OkonomIkon({ size = 56, className }: IconProps) {
 export function MiddagIkon({ size = 48, className = "" }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      <Defs id="middag" />
       <rect width="48" height="48" rx="14" fill="#EDE9FE" />
-      <ellipse cx="24" cy="30" rx="13" ry="4" fill="url(#middag_purp)" opacity="0.15" />
-      <path d="M14 22 C14 16 34 16 34 22 L32 32 H16 Z" fill="url(#middag_purp)" />
-      <path d="M18 22 C18 19 30 19 30 22" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
-      <line x1="24" y1="12" x2="24" y2="18" stroke="url(#middag_teal)" strokeWidth="2.5" strokeLinecap="round" />
-      <path d="M20 14 Q24 11 28 14" stroke="url(#middag_teal)" strokeWidth="2" strokeLinecap="round" fill="none" />
+      <defs>
+        <linearGradient id="middag_g1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#8B5CF6" />
+          <stop offset="100%" stopColor="#6366F1" />
+        </linearGradient>
+        <linearGradient id="middag_g2" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#2DD4BF" />
+          <stop offset="100%" stopColor="#06B6D4" />
+        </linearGradient>
+      </defs>
+      {/* Tallerken */}
+      <ellipse cx="24" cy="30" rx="13" ry="3.5" fill="url(#middag_g1)" opacity="0.2" />
+      <ellipse cx="24" cy="28" rx="12" ry="2" fill="url(#middag_g1)" opacity="0.15" />
+      {/* Bolle */}
+      <path d="M13 24 C13 17 35 17 35 24 Q35 31 24 31 Q13 31 13 24Z" fill="url(#middag_g1)" />
+      {/* Glans */}
+      <path d="M17 21 Q24 18 31 21" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
+      {/* Damp */}
+      <path d="M20 15 Q21 12 20 10" stroke="url(#middag_g2)" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+      <path d="M24 14 Q25 11 24 9" stroke="url(#middag_g2)" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+      <path d="M28 15 Q29 12 28 10" stroke="url(#middag_g2)" strokeWidth="1.8" strokeLinecap="round" fill="none" />
     </svg>
   );
 }

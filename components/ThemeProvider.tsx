@@ -12,8 +12,8 @@ import { useEffect } from "react";
 export default function ThemeProvider() {
   useEffect(() => {
     const stored = localStorage.getItem("qlumio-theme");
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const isDark = stored === "dark" || (!stored && prefersDark);
+    // Standard: lys modus – mørk kun hvis brukeren har valgt det eksplisitt
+    const isDark = stored === "dark";
     document.documentElement.classList.toggle("dark", isDark);
   }, []);
 
