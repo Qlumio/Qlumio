@@ -76,8 +76,8 @@ function JoinForm() {
       return;
     }
 
-    router.push("/");
-    router.refresh();
+    // Full reload sikrer at middleware plukker opp nye auth-cookies
+    window.location.href = "/";
   };
 
   return (
