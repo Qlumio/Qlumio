@@ -1,27 +1,38 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-// Hardkodet her for å unngå import av browser-kode i Edge Runtime
 const AUTH_COOKIE_ACCESS = "qlumio-access-token";
 const PUBLIC_PATHS = ["/login", "/register", "/join", "/om", "/feedback"];
+
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Alltid tillat offentlige ruter
   const isPublicPath = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
-
-  // Sjekk om brukeren har et access-token
   const accessToken = request.cookies.get(AUTH_COOKIE_ACCESS)?.value;
 
+  if (accessToken && isTokenExpired(accessToken) && !isPublicPath) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("from", pathname);
+    const response = NextResponse.redirect(loginUrl);
+    response.cookies.delete(AUTH_COOKIE_ACCESS);
+    return response;
+  }
+
   if (!accessToken && !isPublicPath) {
-    // Ikke innlogget og prøver å nå en beskyttet side → login
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (accessToken && isPublicPath) {
-    // Allerede innlogget og prøver å nå auth-side → hjem
+  if (accessToken && !isTokenExpired(accessToken) && isPublicPath) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
@@ -30,7 +41,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Kjør på alle ruter unntatt statiske filer
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
