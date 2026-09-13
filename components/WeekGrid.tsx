@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
+import type { FamilyMember, Event, EventException, Task, Meal, MealPlan } from "@/lib/types";
 import { getMondayOfWeek, getWeekDates, formatDate, getWeekNumber } from "@/lib/dates";
 import EventModal from "@/components/EventModal";
 import EventActionsModal from "@/components/EventActionsModal";
@@ -34,6 +34,9 @@ type Props = {
   exceptions: EventException[];
   tasks: Task[];
   currentMonday: string;
+  familyId: string;
+  meals: Meal[];
+  mealPlans: MealPlan[];
 };
 
 // Vis kun HH:MM (strip sekunder)
@@ -146,7 +149,7 @@ function EventChip({
   );
 }
 
-export default function WeekGrid({ members, events, exceptions, tasks, currentMonday }: Props) {
+export default function WeekGrid({ members, events, exceptions, tasks, currentMonday, familyId, meals, mealPlans }: Props) {
   const router = useRouter();
   const [modalCell, setModalCell] = useState<ModalCell>(null);
   const [activeEvent, setActiveEvent] = useState<ActiveEvent>(null);
@@ -333,6 +336,9 @@ export default function WeekGrid({ members, events, exceptions, tasks, currentMo
         events={events}
         exceptions={exceptions}
         tasks={tasks}
+        familyId={familyId}
+        meals={meals}
+        mealPlans={mealPlans}
       />
     );
   }
@@ -489,6 +495,28 @@ export default function WeekGrid({ members, events, exceptions, tasks, currentMo
                           )}
                           {!holidayName && schoolHoliday && (
                             <div className="text-[10px] text-amber-400 leading-tight mt-0.5">🎒 {schoolHoliday}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Middag-rad */}
+                  <div className="grid grid-cols-[150px_repeat(7,1fr)] gap-2 mb-4 mt-1">
+                    <div className="flex items-center gap-1.5 px-2">
+                      <span className="text-base">🍽️</span>
+                      <span className="text-xs text-gray-400 font-medium">Middag</span>
+                    </div>
+                    {weekDates.map((date) => {
+                      const ds = formatDate(date);
+                      const plan = mealPlans.find(p => p.date === ds);
+                      const title = plan?.meals?.title ?? plan?.custom_title;
+                      return (
+                        <div key={ds} className="min-h-[2rem] flex items-center justify-center">
+                          {title ? (
+                            <span className="text-xs text-purple-600 font-medium bg-purple-50 rounded-lg px-2 py-1 text-center leading-tight">{title}</span>
+                          ) : (
+                            <span className="text-xs text-gray-200">–</span>
                           )}
                         </div>
                       );

@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { createServerClient } from "@/lib/supabase/server";
 import WeekGrid from "@/components/WeekGrid";
 import { getMondayOfWeek, getWeekDates, formatDate } from "@/lib/dates";
-import type { Event, EventException, Task } from "@/lib/types";
+import type { Event, EventException, Task, Meal, MealPlan } from "@/lib/types";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -29,6 +29,14 @@ export default async function AktiviteterPage({
   extendedFrom.setDate(monday.getDate() - 14);
   const extendedFromStr = formatDate(extendedFrom);
 
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: memberInfo } = await supabase
+    .from("family_members")
+    .select("family_id")
+    .eq("user_id", user!.id)
+    .single();
+  const familyId = memberInfo!.family_id;
+
   const { data: members } = await supabase
     .from("family_members")
     .select("*")
@@ -51,6 +59,11 @@ export default async function AktiviteterPage({
   const { data: exceptions } = await supabase
     .from("event_exceptions")
     .select("*");
+
+  const [{ data: meals }, { data: mealPlans }] = await Promise.all([
+    supabase.from("meals").select("*, meal_ingredients(*)").eq("family_id", familyId).order("title"),
+    supabase.from("meal_plans").select("*, meals(title)").eq("family_id", familyId).order("date"),
+  ]);
 
   const { data: tasksRaw } = await supabase
     .from("tasks")
@@ -94,6 +107,9 @@ export default async function AktiviteterPage({
       exceptions={(exceptions ?? []) as EventException[]}
       tasks={(tasksRaw ?? []) as Task[]}
       currentMonday={mondayStr}
+      familyId={familyId}
+      meals={(meals ?? []) as Meal[]}
+      mealPlans={(mealPlans ?? []) as MealPlan[]}
     />
   );
 }

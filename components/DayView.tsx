@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
+import type { FamilyMember, Event, EventException, Task, Meal, MealPlan } from "@/lib/types";
 import { formatDate, getWeekNumber } from "@/lib/dates";
 import { EVENT_CATEGORIES } from "@/lib/types";
 import { getPublicHolidayName, getSchoolHolidayName, isPublicHoliday } from "@/lib/holidays";
@@ -48,6 +48,9 @@ type Props = {
   events: Event[];
   exceptions: EventException[];
   tasks: Task[];
+  familyId: string;
+  meals: Meal[];
+  mealPlans: MealPlan[];
 };
 
 function EventCard({
@@ -133,7 +136,7 @@ function TaskRow({ task, onToggle }: { task: Task; onToggle: (task: Task) => voi
   );
 }
 
-export default function DayView({ members, events, exceptions, tasks }: Props) {
+export default function DayView({ members, events, exceptions, tasks, familyId, meals, mealPlans: initialMealPlans }: Props) {
   const router = useRouter();
   const todayStr = formatDate(new Date());
 
@@ -141,6 +144,45 @@ export default function DayView({ members, events, exceptions, tasks }: Props) {
   const [modalCell, setModalCell] = useState<ModalCell>(null);
   const [activeEvent, setActiveEvent] = useState<ActiveEvent>(null);
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
+  const [localMealPlans, setLocalMealPlans] = useState<MealPlan[]>(initialMealPlans);
+  const [mealModal, setMealModal] = useState(false);
+  const [savingMeal, setSavingMeal] = useState(false);
+
+  const todayMealPlan = localMealPlans.find(p => p.date === selectedDate);
+  const todayMealTitle = todayMealPlan?.meals?.title ?? todayMealPlan?.custom_title;
+
+  const handlePlanMeal = async (meal: Meal) => {
+    setSavingMeal(true);
+    if (todayMealPlan) {
+      await supabase.from("shopping_items").delete().eq("meal_plan_id", todayMealPlan.id);
+      await supabase.from("meal_plans").delete().eq("id", todayMealPlan.id);
+    }
+    const { data: newPlan } = await supabase.from("meal_plans")
+      .insert({ family_id: familyId, date: selectedDate, meal_id: meal.id })
+      .select("*, meals(title)").single();
+    if (newPlan && meal.meal_ingredients?.length) {
+      await supabase.from("shopping_items").insert(
+        meal.meal_ingredients.map(ing => ({
+          name: ing.name, quantity: ing.quantity, category: ing.category,
+          meal_plan_id: newPlan.id, source: "meal", family_id: familyId, checked: false,
+        }))
+      );
+    }
+    const { data: updated } = await supabase.from("meal_plans")
+      .select("*, meals(title)").eq("family_id", familyId);
+    setLocalMealPlans(updated ?? []);
+    setMealModal(false);
+    setSavingMeal(false);
+  };
+
+  const handleRemoveMeal = async () => {
+    if (!todayMealPlan) return;
+    setSavingMeal(true);
+    await supabase.from("shopping_items").delete().eq("meal_plan_id", todayMealPlan.id);
+    await supabase.from("meal_plans").delete().eq("id", todayMealPlan.id);
+    setLocalMealPlans(prev => prev.filter(p => p.id !== todayMealPlan.id));
+    setSavingMeal(false);
+  };
 
   const selectedDateObj = new Date(selectedDate + "T00:00:00");
   const dayName = DAY_NAMES[selectedDateObj.getDay()];
@@ -301,6 +343,78 @@ export default function DayView({ members, events, exceptions, tasks }: Props) {
           );
         })}
       </div>
+
+        {/* Middag-seksjon */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setMealModal(true)}
+            className="w-full flex items-center justify-between px-4 py-3 active:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-base">🍽️</span>
+              <span className="font-semibold text-gray-900">Middag</span>
+              {todayMealTitle && (
+                <span className="text-sm text-purple-600 font-medium">{todayMealTitle}</span>
+              )}
+            </div>
+            <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-lg font-light">
+              {todayMealTitle ? "↺" : "+"}
+            </div>
+          </button>
+          {!todayMealTitle && (
+            <div
+              onClick={() => setMealModal(true)}
+              className="px-4 pb-4 text-sm text-gray-300 cursor-pointer"
+            >
+              Ingen middag planlagt – trykk for å velge
+            </div>
+          )}
+          {todayMealTitle && (
+            <div className="px-4 pb-3 flex items-center justify-between">
+              <span className="text-xs text-gray-400">Ingredienser legges på handlelisten automatisk</span>
+              <button onClick={handleRemoveMeal} className="text-xs text-red-400 font-medium ml-2">Fjern</button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal: Velg middag for dagen */}
+      {mealModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setMealModal(false)}>
+          <div className="w-full bg-white rounded-t-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-4 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900">Velg middag</h3>
+              <button onClick={() => setMealModal(false)} className="text-gray-300 text-2xl leading-none">×</button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-4 py-3 space-y-2">
+              {meals.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">
+                  Ingen middager i banken ennå.{" "}
+                  <a href="/middager" className="text-purple-500 font-medium">Gå til Middagsplan</a>
+                </p>
+              ) : meals.map(meal => (
+                <button
+                  key={meal.id}
+                  onClick={() => handlePlanMeal(meal)}
+                  disabled={savingMeal}
+                  className="w-full text-left bg-gray-50 hover:bg-purple-50 active:bg-purple-100 rounded-xl px-4 py-3 transition-colors"
+                >
+                  <div className="font-medium text-gray-900">{meal.title}</div>
+                  {(meal.meal_ingredients?.length ?? 0) > 0 && (
+                    <div className="text-xs text-gray-400 mt-0.5">{meal.meal_ingredients!.length} ingredienser</div>
+                  )}
+                </button>
+              ))}
+            </div>
+            <div className="px-4 py-4 border-t border-gray-100">
+              <a href="/middager"
+                className="block w-full py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-sm text-gray-400 text-center">
+                + Administrer middagsbank
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {modalCell && (
         <EventModal
