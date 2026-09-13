@@ -356,7 +356,6 @@ export default function DayView({ members, events, exceptions, tasks, familyId, 
             </div>
           );
         })}
-      </div>
 
         {/* Middag-seksjon */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
@@ -390,7 +389,6 @@ export default function DayView({ members, events, exceptions, tasks, familyId, 
             </div>
           )}
         </div>
-      </div>
 
       {/* Modal: Velg middag for dagen */}
       {mealModal && (
