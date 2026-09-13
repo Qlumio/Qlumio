@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { FamilyMember, Event, EventException, Task, Meal, MealPlan } from "@/lib/types";
@@ -262,7 +263,20 @@ export default function DayView({ members, events, exceptions, tasks, familyId, 
 
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 pt-4 pb-3">
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 pt-3 pb-3">
+        {/* Toppnavigasjon */}
+        <div className="flex items-center justify-between mb-3">
+          <Link href="/"
+            className="flex items-center gap-1.5 text-gray-400 active:text-gray-700 text-sm font-medium px-2 py-1.5 rounded-xl active:bg-gray-100 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 22V12h6v10" />
+            </svg>
+            Hjem
+          </Link>
+          <span className="text-sm font-semibold text-gray-900">Aktiviteter</span>
+          <div className="w-16" />
+        </div>
         <div className="flex items-center justify-between mb-1">
           <button
             onClick={() => setSelectedDate(addDays(selectedDate, -1))}
