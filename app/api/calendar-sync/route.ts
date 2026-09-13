@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { parseICS } from "@/lib/ical";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const { subscriptionId } = await request.json();
 
@@ -33,45 +35,51 @@ export async function POST(request: NextRequest) {
 
   const parsedEvents = parseICS(icsText);
 
-  // Hent eksisterende UIDs for denne familien for å unngå duplikater
+  // Hent eksisterende UIDs for å unngå duplikater
   const { data: existing } = await supabase
     .from("events")
-    .select("id, external_uid")
+    .select("external_uid")
     .not("external_uid", "is", null);
 
   const existingUids = new Set((existing ?? []).map((e) => e.external_uid));
 
-  let imported = 0;
-  let skipped = 0;
+  const toInsert = parsedEvents.filter((ev) => !existingUids.has(ev.uid));
+  const skipped = parsedEvents.length - toInsert.length;
 
-  for (const ev of parsedEvents) {
-    if (existingUids.has(ev.uid)) {
-      skipped++;
-      continue;
+  let imported = 0;
+
+  if (toInsert.length > 0) {
+    // Batch-insert alle hendelser i ÉTT kall istedenfor ett per hendelse
+    const eventRows = toInsert.map((ev) => ({
+      title: ev.title,
+      date: ev.date,
+      end_date: ev.endDate !== ev.date ? ev.endDate : null,
+      start_time: ev.startTime,
+      end_time: ev.endTime,
+      recurring: false,
+      responsible_member_id: null,
+      category: sub.category,
+      external_uid: ev.uid,
+    }));
+
+    const { data: insertedEvents, error: insertError } = await supabase
+      .from("events")
+      .insert(eventRows)
+      .select("id, external_uid");
+
+    if (insertError) {
+      return NextResponse.json({ error: "Feil ved import: " + insertError.message }, { status: 500 });
     }
 
-    const { data: newEvent, error: insertError } = await supabase
-      .from("events")
-      .insert({
-        title: ev.title,
-        date: ev.date,
-        end_date: ev.endDate !== ev.date ? ev.endDate : null,
-        start_time: ev.startTime,
-        end_time: ev.endTime,
-        recurring: false,
-        responsible_member_id: null,
-        category: sub.category,
-        external_uid: ev.uid,
-      })
-      .select()
-      .single();
+    imported = insertedEvents?.length ?? 0;
 
-    if (!insertError && newEvent) {
-      await supabase.from("event_participants").insert({
-        event_id: newEvent.id,
+    // Batch-insert deltakere i ÉTT kall
+    if (insertedEvents && insertedEvents.length > 0) {
+      const participantRows = insertedEvents.map((e) => ({
+        event_id: e.id,
         family_member_id: sub.member_id,
-      });
-      imported++;
+      }));
+      await supabase.from("event_participants").insert(participantRows);
     }
   }
 
