@@ -18,18 +18,26 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
-      setError("Feil e-post eller passord. Prøv igjen.");
+      if (error) {
+        setError("Feil e-post eller passord. Prøv igjen.");
+        setLoading(false);
+        return;
+      }
+
+      if (data.session) {
+        setAuthCookies(data.session.access_token, data.session.refresh_token);
+        // Full reload sikrer at middleware plukker opp nye auth-cookies
+        window.location.href = "/";
+      } else {
+        setError("Innlogging feilet. Prøv igjen.");
+        setLoading(false);
+      }
+    } catch (e) {
+      setError("Noe gikk galt. Sjekk internettforbindelsen og prøv igjen.");
       setLoading(false);
-      return;
-    }
-
-    if (data.session) {
-      setAuthCookies(data.session.access_token, data.session.refresh_token);
-      router.push("/");
-      router.refresh();
     }
   };
 
