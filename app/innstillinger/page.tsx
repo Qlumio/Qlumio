@@ -4,6 +4,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import MemberSettings from "@/components/MemberSettings";
 import InviteCodeManager from "@/components/InviteCodeManager";
 import type { Metadata } from "next";
+import ChangePassword from "@/components/ChangePassword";
 
 export const metadata: Metadata = {
   title: "Innstillinger – Qlumio",
@@ -59,6 +60,7 @@ export default async function InnstillingerPage() {
             Start økonomi-wizard
           </Link>
         </div>
+        <ChangePassword />
       </div>
     </main>
   );
