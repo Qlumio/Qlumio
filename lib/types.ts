@@ -122,22 +122,21 @@ export type Event = {
 
 // Alle kategorier – vises ved registrering av aktivitet
 export const EVENT_CATEGORIES = [
+  { value: "fotball", label: "Fotball", icon: "⚽" },
+  { value: "turn", label: "Turn", icon: "🤸" },
+  { value: "dans", label: "Dans", icon: "💃" },
+  { value: "håndball", label: "Håndball", icon: "🤾" },
   { value: "trening", label: "Trening", icon: "🏋️" },
-  { value: "sport", label: "Sport", icon: "⚽" },
   { value: "skole", label: "Skole", icon: "🏫" },
   { value: "sosialt", label: "Sosialt", icon: "🎉" },
   { value: "ferie", label: "Ferie/Reise", icon: "✈️" },
   { value: "helse", label: "Helse", icon: "🏥" },
-  { value: "kjøretøy", label: "Kjøretøy", icon: "🚗" },
-  { value: "økonomi", label: "Økonomi", icon: "💰" },
-  { value: "eiendom", label: "Eiendom", icon: "🏠" },
-  { value: "familie", label: "Familie", icon: "👨‍👩‍👧" },
   { value: "annet", label: "Annet", icon: "📦" },
 ] as const;
 
 // Kategorier som vises i årshjulet (ikke dagligdagse ting som trening/skole)
 export const ARSHJUL_CATEGORIES = EVENT_CATEGORIES.filter((c) =>
-  ["helse", "kjøretøy", "økonomi", "eiendom", "familie", "ferie"].includes(c.value)
+  ["helse", "ferie"].includes(c.value)
 );
 
 export type Task = {
