@@ -5,6 +5,7 @@ import MemberSettings from "@/components/MemberSettings";
 import InviteCodeManager from "@/components/InviteCodeManager";
 import type { Metadata } from "next";
 import ChangePassword from "@/components/ChangePassword";
+import CalendarSubscriptions from "@/components/CalendarSubscriptions";
 
 export const metadata: Metadata = {
   title: "Innstillinger – Qlumio",
@@ -25,6 +26,13 @@ export default async function InnstillingerPage() {
   ]);
 
   const currentMember = members?.find((m) => m.user_id === user?.id);
+  const familyId = currentMember?.family_id ?? members?.[0]?.family_id ?? "";
+
+  const { data: subscriptions } = await supabase
+    .from("calendar_subscriptions")
+    .select("*")
+    .eq("family_id", familyId)
+    .order("created_at", { ascending: false });
   const currentUserPermissionLevel = currentMember?.permission_level ?? "member";
 
   return (
@@ -61,6 +69,11 @@ export default async function InnstillingerPage() {
           </Link>
         </div>
         <ChangePassword />
+        <CalendarSubscriptions
+          familyId={familyId}
+          members={members ?? []}
+          initialSubscriptions={subscriptions ?? []}
+        />
       </div>
     </main>
   );
