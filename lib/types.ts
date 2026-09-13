@@ -122,17 +122,21 @@ export type Event = {
 
 // Alle kategorier – vises ved registrering av aktivitet
 export const EVENT_CATEGORIES = [
-  { value: "fotball", label: "Fotball", icon: "⚽" },
-  { value: "turn", label: "Turn", icon: "🤸" },
-  { value: "dans", label: "Dans", icon: "💃" },
-  { value: "håndball", label: "Håndball", icon: "🤾" },
-  { value: "trening", label: "Trening", icon: "🏋️" },
-  { value: "skole", label: "Skole", icon: "🏫" },
-  { value: "sosialt", label: "Sosialt", icon: "🎉" },
-  { value: "ferie", label: "Ferie/Reise", icon: "✈️" },
-  { value: "helse", label: "Helse", icon: "🏥" },
-  { value: "annet", label: "Annet", icon: "📦" },
+  { value: "fotball", label: "Fotball", icon: "⚽", color: "#16A34A" },
+  { value: "turn", label: "Turn", icon: "🤸", color: "#DB2777" },
+  { value: "dans", label: "Dans", icon: "💃", color: "#9333EA" },
+  { value: "håndball", label: "Håndball", icon: "🤾", color: "#EA580C" },
+  { value: "trening", label: "Trening", icon: "🏋️", color: "#0EA5E9" },
+  { value: "skole", label: "Skole", icon: "🏫", color: "#4F46E5" },
+  { value: "sosialt", label: "Sosialt", icon: "🎉", color: "#F59E0B" },
+  { value: "ferie", label: "Ferie/Reise", icon: "✈️", color: "#06B6D4" },
+  { value: "helse", label: "Helse", icon: "🏥", color: "#DC2626" },
+  { value: "annet", label: "Annet", icon: "📦", color: "#6B7280" },
 ] as const;
+
+export function getCategoryColor(category: string | null): string {
+  return EVENT_CATEGORIES.find((c) => c.value === category)?.color ?? "#6B7280";
+}
 
 // Kategorier som vises i årshjulet (ikke dagligdagse ting som trening/skole)
 export const ARSHJUL_CATEGORIES = EVENT_CATEGORIES.filter((c) =>

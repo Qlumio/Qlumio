@@ -9,7 +9,7 @@ import { getMondayOfWeek, getWeekDates, formatDate, getWeekNumber } from "@/lib/
 import EventModal from "@/components/EventModal";
 import EventActionsModal from "@/components/EventActionsModal";
 import DayView from "@/components/DayView";
-import { EVENT_CATEGORIES } from "@/lib/types";
+import { EVENT_CATEGORIES, getCategoryColor } from "@/lib/types";
 import { getPublicHolidayName, getSchoolHolidayName, isPublicHoliday } from "@/lib/holidays";
 
 const DAY_NAMES = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
@@ -108,13 +108,16 @@ function EventChip({
     ? members.filter((m) => m.role === "child" && event.participant_ids.includes(m.id))
     : [];
 
+  const bgColor = getCategoryColor(event.category ?? null);
+
   return (
     <div
       onClick={(e) => { e.stopPropagation(); onOpen(event); }}
-      className={`${chipColor} rounded-md p-2 text-gray-800 mb-1.5 cursor-pointer hover:opacity-80 transition-opacity`}
+      style={{ backgroundColor: bgColor }}
+      className="rounded-md p-2 text-white mb-1.5 cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
     >
       {(st || et) && (
-        <div className="text-xs text-gray-500 leading-tight mb-0.5">
+        <div className="text-xs text-white/75 leading-tight mb-0.5">
           {isFirstDay && st && <span>{st}</span>}
           {isFirstDay && st && isLastDay && et && <span> – {et}</span>}
           {isFirstDay && st && !isLastDay && <span> →</span>}
@@ -125,22 +128,22 @@ function EventChip({
         {emoji && <span className={`${solo ? "text-base" : "text-sm"} flex-shrink-0 leading-none`}>{emoji}</span>}
         <span className="truncate">
           {event.title}
-          {event.recurring && <span className="ml-1 opacity-50 text-[9px]">↻</span>}
-          {event.end_date && !event.recurring && <span className="ml-1 opacity-50 text-[9px]">⟷</span>}
+          {event.recurring && <span className="ml-1 opacity-70 text-[9px]">↻</span>}
+          {event.end_date && !event.recurring && <span className="ml-1 opacity-70 text-[9px]">⟷</span>}
         </span>
       </div>
       {isChildCol && responsible && (
         <div className="flex items-center gap-1 mt-0.5">
-          <div className={`w-2 h-2 rounded-full ${responsible.color} opacity-80`} />
-          <span className="text-[9px] opacity-70 leading-tight truncate">{responsible.name}</span>
+          <div className={`w-2 h-2 rounded-full ${responsible.color} ring-1 ring-white/60`} />
+          <span className="text-[9px] text-white/80 leading-tight truncate">{responsible.name}</span>
         </div>
       )}
       {isResponsibleCol && childParticipants.length > 0 && (
         <div className="flex items-center gap-1 mt-0.5 flex-wrap">
           {childParticipants.map((child) => (
             <div key={child.id} className="flex items-center gap-0.5">
-              <div className={`w-2 h-2 rounded-full ${child.color} opacity-80`} />
-              <span className="text-[9px] opacity-70 leading-tight">{child.name}</span>
+              <div className={`w-2 h-2 rounded-full ${child.color} ring-1 ring-white/60`} />
+              <span className="text-[9px] text-white/80 leading-tight">{child.name}</span>
             </div>
           ))}
         </div>
@@ -552,7 +555,7 @@ export default function WeekGrid({ members, events, exceptions, tasks, currentMo
                             onClick={() => setModalCell({ memberId: member.id, date: dateStr })}
                             className={`relative group/cell min-h-28 rounded-lg p-1.5 cursor-pointer transition-colors ${
                               isToday
-                                ? "bg-gray-100 ring-1 ring-blue-500 hover:bg-gray-200"
+                                ? "bg-blue-50/70 ring-1 ring-blue-300 hover:bg-blue-50"
                                 : "bg-white hover:bg-gray-100"
                             }`}
                           >
@@ -641,7 +644,7 @@ export default function WeekGrid({ members, events, exceptions, tasks, currentMo
                             onClick={() => setModalCell({ memberId: member.id, date: dateStr })}
                             className={`relative group/cell min-h-40 rounded-lg p-2 cursor-pointer transition-colors ${
                               isToday
-                                ? "bg-gray-100 ring-1 ring-blue-500 hover:bg-gray-200"
+                                ? "bg-blue-50/70 ring-1 ring-blue-300 hover:bg-blue-50"
                                 : "bg-white hover:bg-gray-100"
                             }`}
                           >

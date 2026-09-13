@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { FamilyMember, Event, EventException, Task, Meal, MealPlan } from "@/lib/types";
 import { formatDate, getWeekNumber } from "@/lib/dates";
-import { EVENT_CATEGORIES } from "@/lib/types";
+import { EVENT_CATEGORIES, getCategoryColor } from "@/lib/types";
 import { getPublicHolidayName, getSchoolHolidayName, isPublicHoliday } from "@/lib/holidays";
 import EventModal from "@/components/EventModal";
 import EventActionsModal from "@/components/EventActionsModal";
@@ -72,13 +72,16 @@ function EventCard({
   const childParticipants = isResponsibleCol
     ? members.filter((m) => m.role === "child" && event.participant_ids.includes(m.id)) : [];
 
+  const bgColor = getCategoryColor(event.category ?? null);
+
   return (
     <div
       onClick={() => onOpen(event)}
-      className={`${chipColor} rounded-xl px-4 py-3 text-gray-800 active:opacity-70 transition-opacity`}
+      style={{ backgroundColor: bgColor }}
+      className="rounded-xl px-4 py-3 text-white active:opacity-80 transition-opacity shadow-sm"
     >
       {(st || et) && (
-        <div className="text-sm text-gray-500 mb-1">
+        <div className="text-sm text-white/75 mb-1">
           {isFirstDay && st && <span>{st}</span>}
           {isFirstDay && st && isLastDay && et && <span> – {et}</span>}
           {isFirstDay && st && !isLastDay && <span> →</span>}
@@ -89,22 +92,22 @@ function EventCard({
         {emoji && <span className="text-lg leading-none">{emoji}</span>}
         <span className="font-semibold text-base leading-snug">
           {event.title}
-          {event.recurring && <span className="ml-1.5 opacity-50 text-xs">↻</span>}
-          {event.end_date && !event.recurring && <span className="ml-1.5 opacity-50 text-xs">⟷</span>}
+          {event.recurring && <span className="ml-1.5 opacity-70 text-xs">↻</span>}
+          {event.end_date && !event.recurring && <span className="ml-1.5 opacity-70 text-xs">⟷</span>}
         </span>
       </div>
       {isChildCol && responsible && (
         <div className="flex items-center gap-1.5 mt-1.5">
-          <div className={`w-2.5 h-2.5 rounded-full ${responsible.color}`} />
-          <span className="text-xs text-gray-500">{responsible.name}</span>
+          <div className={`w-2.5 h-2.5 rounded-full ${responsible.color} ring-1 ring-white/60`} />
+          <span className="text-xs text-white/80">{responsible.name}</span>
         </div>
       )}
       {isResponsibleCol && childParticipants.length > 0 && (
         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
           {childParticipants.map((child) => (
             <div key={child.id} className="flex items-center gap-1">
-              <div className={`w-2.5 h-2.5 rounded-full ${child.color}`} />
-              <span className="text-xs text-gray-500">{child.name}</span>
+              <div className={`w-2.5 h-2.5 rounded-full ${child.color} ring-1 ring-white/60`} />
+              <span className="text-xs text-white/80">{child.name}</span>
             </div>
           ))}
         </div>
