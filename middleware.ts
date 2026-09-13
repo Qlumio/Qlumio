@@ -41,6 +41,11 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Ekskluder statiske filer, metadata-ruter (manifest, robots, sitemap) og
+    // API-ruter fra auth-redirect. Disse skal ALDRI sendes til login-siden som
+    // HTML, siden nettlesere/klienter forventer JSON eller rådata derfra –
+    // en HTML-redirect der gir kryptiske parse-feil (f.eks. "Manifest: Line 1,
+    // column 1, Syntax error").
+    "/((?!_next/static|_next/image|favicon.ico|manifest|robots.txt|sitemap.xml|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
