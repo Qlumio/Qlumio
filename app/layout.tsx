@@ -3,6 +3,7 @@ import { Nunito } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "@/lib/userContext";
 import ThemeProvider from "@/components/ThemeProvider";
+import BottomNav from "@/components/BottomNav";
 
 const nunito = Nunito({
   variable: "--font-nunito",
@@ -38,7 +39,10 @@ export default function RootLayout({
     <html lang="en" className={`${nunito.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <ThemeProvider />
-        <UserProvider>{children}</UserProvider>
+        <UserProvider>
+          <div className="pb-16 md:pb-0">{children}</div>
+          <BottomNav />
+        </UserProvider>
       </body>
     </html>
   );
