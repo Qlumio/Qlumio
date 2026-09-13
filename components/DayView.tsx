@@ -389,6 +389,7 @@ export default function DayView({ members, events, exceptions, tasks, familyId, 
             </div>
           )}
         </div>
+      </div>
 
       {/* Modal: Velg middag for dagen */}
       {mealModal && (
