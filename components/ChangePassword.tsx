@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
 
 export default function ChangePassword() {
@@ -8,11 +8,22 @@ export default function ChangePassword() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [countdown, setCountdown] = useState(3);
+
+  useEffect(() => {
+    if (status !== "success") return;
+    if (countdown === 0) {
+      supabase.auth.signOut().then(() => {
+        window.location.href = "/login";
+      });
+      return;
+    }
+    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [status, countdown]);
 
   const handleSubmit = async () => {
     setErrorMsg("");
-    setStatus("idle");
-
     if (newPassword.length < 6) {
       setErrorMsg("Passordet må være minst 6 tegn.");
       return;
@@ -25,28 +36,34 @@ export default function ChangePassword() {
     setStatus("loading");
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setErrorMsg("Du er ikke innlogget. Last siden på nytt og prøv igjen.");
-        setStatus("error");
-        return;
-      }
-
       const { error } = await supabase.auth.updateUser({ password: newPassword });
-
       if (error) {
         setErrorMsg(error.message);
         setStatus("error");
       } else {
         setStatus("success");
-        setNewPassword("");
-        setConfirmPassword("");
       }
     } catch (e) {
       setErrorMsg("Noe gikk galt. Prøv igjen.");
       setStatus("error");
     }
   };
+
+  if (status === "success") {
+    return (
+      <div className="bg-white rounded-2xl border border-green-200 p-6 text-center">
+        <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+          <svg className="w-7 h-7 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h2 className="text-base font-semibold text-gray-900 mb-1">Passord oppdatert!</h2>
+        <p className="text-sm text-gray-500">
+          Du sendes til innlogging om {countdown} sekund{countdown !== 1 ? "er" : ""}...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-6">
@@ -80,10 +97,6 @@ export default function ChangePassword() {
 
         {errorMsg && (
           <p className="text-sm text-red-500">{errorMsg}</p>
-        )}
-
-        {status === "success" && (
-          <p className="text-sm text-green-600 font-medium">✅ Passordet er oppdatert!</p>
         )}
 
         <button
