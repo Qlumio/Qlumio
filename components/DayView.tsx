@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
 import { formatDate, getWeekNumber } from "@/lib/dates";
 import { EVENT_CATEGORIES } from "@/lib/types";
+import { getPublicHolidayName, getSchoolHolidayName, isPublicHoliday } from "@/lib/holidays";
 import EventModal from "@/components/EventModal";
 import EventActionsModal from "@/components/EventActionsModal";
 
@@ -147,6 +148,9 @@ export default function DayView({ members, events, exceptions, tasks }: Props) {
   const monthName = MONTH_NAMES[selectedDateObj.getMonth()];
   const weekNum = getWeekNumber(selectedDateObj);
   const isToday = selectedDate === todayStr;
+  const publicHoliday = getPublicHolidayName(selectedDate);
+  const schoolHoliday = getSchoolHolidayName(selectedDate);
+  const isRedDay = isPublicHoliday(selectedDate);
 
   const getEventsForMember = (memberId: string): Event[] => {
     const cellDate = new Date(selectedDate + "T00:00:00");
@@ -225,11 +229,13 @@ export default function DayView({ members, events, exceptions, tasks }: Props) {
             ‹
           </button>
           <button onClick={() => setSelectedDate(todayStr)} className="text-center">
-            <div className="text-lg font-bold text-gray-900">
+            <div className={`text-lg font-bold ${isRedDay ? "text-red-500" : "text-gray-900"}`}>
               {dayName} {dayNum}. {monthName}
             </div>
-            <div className={`text-xs mt-0.5 ${isToday ? "text-blue-500 font-medium" : "text-gray-400"}`}>
+            <div className={`text-xs mt-0.5 ${isToday ? "text-blue-500 font-medium" : isRedDay ? "text-red-400" : "text-gray-400"}`}>
               {isToday ? "I dag · " : ""}Uke {weekNum}
+              {publicHoliday && <span className="ml-1">· {publicHoliday}</span>}
+              {!publicHoliday && schoolHoliday && <span className="ml-1">· 🎒 {schoolHoliday}</span>}
             </div>
           </button>
           <button

@@ -10,6 +10,7 @@ import EventModal from "@/components/EventModal";
 import EventActionsModal from "@/components/EventActionsModal";
 import DayView from "@/components/DayView";
 import { EVENT_CATEGORIES } from "@/lib/types";
+import { getPublicHolidayName, getSchoolHolidayName, isPublicHoliday } from "@/lib/holidays";
 
 const DAY_NAMES = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
 const MONTH_NAMES = ["Januar", "Februar", "Mars", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Desember"];
@@ -470,13 +471,25 @@ export default function WeekGrid({ members, events, exceptions, tasks, currentMo
                     {/* Klikk "Familie" for å reset (her er det ingen fokus, men vi viser en tom celle) */}
                     <div />
                     {weekDates.map((date, i) => {
-                      const isToday = formatDate(date) === todayStr;
+                      const ds = formatDate(date);
+                      const isToday = ds === todayStr;
+                      const holidayName = getPublicHolidayName(ds);
+                      const schoolHoliday = getSchoolHolidayName(ds);
+                      const isRed = isPublicHoliday(ds);
                       return (
                         <div key={i} className="text-center">
                           <div className="text-xs text-gray-400 uppercase tracking-wide">{DAY_NAMES[i]}</div>
-                          <div className={`text-sm font-semibold mt-0.5 ${isToday ? "text-blue-500" : "text-gray-700"}`}>
+                          <div className={`text-sm font-semibold mt-0.5 ${isToday ? "text-blue-500" : isRed ? "text-red-500" : "text-gray-700"}`}>
                             {date.getDate()}.{date.getMonth() + 1}
                           </div>
+                          {holidayName && (
+                            <div className="text-[10px] text-red-400 leading-tight mt-0.5 truncate" title={holidayName}>
+                              {holidayName}
+                            </div>
+                          )}
+                          {!holidayName && schoolHoliday && (
+                            <div className="text-[10px] text-amber-400 leading-tight mt-0.5">🎒 {schoolHoliday}</div>
+                          )}
                         </div>
                       );
                     })}
