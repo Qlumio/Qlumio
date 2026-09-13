@@ -216,3 +216,17 @@ export function OkonomIkon({ size = 56, className }: IconProps) {
     </svg>
   );
 }
+
+export function MiddagIkon({ size = 48, className = "" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <Defs id="middag" />
+      <rect width="48" height="48" rx="14" fill="#EDE9FE" />
+      <ellipse cx="24" cy="30" rx="13" ry="4" fill="url(#middag_purp)" opacity="0.15" />
+      <path d="M14 22 C14 16 34 16 34 22 L32 32 H16 Z" fill="url(#middag_purp)" />
+      <path d="M18 22 C18 19 30 19 30 22" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+      <line x1="24" y1="12" x2="24" y2="18" stroke="url(#middag_teal)" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M20 14 Q24 11 28 14" stroke="url(#middag_teal)" strokeWidth="2" strokeLinecap="round" fill="none" />
+    </svg>
+  );
+}

@@ -15,6 +15,7 @@ import {
   InnkjopIkon,
   EiendelerIkon,
   OkonomIkon,
+  MiddagIkon,
 } from "@/components/ModuleIcons";
 
 // ─── Konstanter ───────────────────────────────────────────────────────────────
@@ -292,6 +293,7 @@ function FeedIcon({ type, className }: { type: FeedItemType; className?: string 
 const ALL_MODULES = [
   { href: "/aktiviteter", title: "Aktiviteter", roles: ["owner", "admin", "member"], Icon: AktiviteterIkon },
   { href: "/oppgaver",    title: "Gjøremål",    roles: ["owner", "admin", "member"], Icon: GjoremalIkon },
+  { href: "/middager",    title: "Middagsplan", roles: ["owner", "admin", "member"], Icon: MiddagIkon },
   { href: "/innkjop",     title: "Innkjøp",     roles: ["owner", "admin", "member"], Icon: InnkjopIkon },
   { href: "/eiendeler",   title: "Eiendeler",   roles: ["owner", "admin"],           Icon: EiendelerIkon },
   { href: "/okonomi",     title: "Økonomi",     roles: ["owner", "admin"],           Icon: OkonomIkon },

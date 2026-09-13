@@ -71,7 +71,40 @@ export type ShoppingItem = {
   checked: boolean;
   checked_at: string | null;
   created_at: string;
+  quantity: string | null;
+  category: string | null;
+  meal_plan_id: string | null;
+  source: string | null;
+  family_id: string | null;
 };
+export type Meal = {
+  id: string;
+  family_id: string;
+  title: string;
+  description: string | null;
+  created_at: string;
+  meal_ingredients?: MealIngredient[];
+};
+
+export type MealIngredient = {
+  id: string;
+  meal_id: string;
+  name: string;
+  quantity: string | null;
+  category: string | null;
+  created_at: string;
+};
+
+export type MealPlan = {
+  id: string;
+  family_id: string;
+  date: string;
+  meal_id: string | null;
+  custom_title: string | null;
+  created_at: string;
+  meals?: { title: string } | null;
+};
+
 
 export type Event = {
   id: string;
