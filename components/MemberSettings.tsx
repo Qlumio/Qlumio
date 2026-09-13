@@ -104,46 +104,51 @@ export default function MemberSettings({ members: initialMembers, currentUserPer
     setEditSaving(true);
     setEditError("");
 
-    // Finn eksisterende member for å beholde gammel PIN hvis ikke endret
-    const existing = members.find((m) => m.id === editingId);
+    try {
+      // Finn eksisterende member for å beholde gammel PIN hvis ikke endret
+      const existing = members.find((m) => m.id === editingId);
 
-    const updateData: Partial<FamilyMember> = {
-      name: editForm.name.trim(),
-      role: editForm.role,
-      color: editForm.color,
-      birth_date: editForm.birth_date || null,
-      phone: editForm.phone.trim() || null,
-      email: editForm.email.trim() || null,
-      permission_level: editForm.permission_level,
-    };
+      const updateData: Partial<FamilyMember> = {
+        name: editForm.name.trim(),
+        role: editForm.role,
+        color: editForm.color,
+        birth_date: editForm.birth_date || null,
+        phone: editForm.phone.trim() || null,
+        email: editForm.email.trim() || null,
+        permission_level: editForm.permission_level,
+      };
 
-    // Oppdater PIN kun hvis ny er angitt; null ut hvis member endres til ikke-admin
-    if (editForm.permission_level === "admin") {
-      if (editForm.pin) {
-        updateData.pin = editForm.pin;
+      // Oppdater PIN kun hvis ny er angitt; null ut hvis member endres til ikke-admin
+      if (editForm.permission_level === "admin") {
+        if (editForm.pin) {
+          updateData.pin = editForm.pin;
+        } else {
+          updateData.pin = existing?.pin ?? null; // behold gammel
+        }
       } else {
-        updateData.pin = existing?.pin ?? null; // behold gammel
+        updateData.pin = null; // fjern PIN for ikke-admin
       }
-    } else {
-      updateData.pin = null; // fjern PIN for ikke-admin
-    }
 
-    const { error } = await supabase
-      .from("family_members")
-      .update(updateData)
-      .eq("id", editingId);
+      const { error } = await supabase
+        .from("family_members")
+        .update(updateData)
+        .eq("id", editingId);
 
-    if (error) {
-      setEditError("Feil ved lagring: " + error.message);
-    } else {
-      setMembers((prev) =>
-        prev.map((m) =>
-          m.id === editingId ? { ...m, ...updateData } : m
-        )
-      );
-      setEditingId(null);
+      if (error) {
+        setEditError("Feil ved lagring: " + error.message);
+      } else {
+        setMembers((prev) =>
+          prev.map((m) =>
+            m.id === editingId ? { ...m, ...updateData } : m
+          )
+        );
+        setEditingId(null);
+      }
+    } catch (e) {
+      setEditError("Noe gikk galt. Sjekk internettforbindelsen og prøv igjen.");
+    } finally {
+      setEditSaving(false);
     }
-    setEditSaving(false);
   };
 
   const addMember = async () => {
@@ -186,13 +191,18 @@ export default function MemberSettings({ members: initialMembers, currentUserPer
   const deleteMember = async (id: string) => {
     if (!confirm("Er du sikker? Dette sletter også alle aktiviteter for dette medlemmet.")) return;
     setDeleting(id);
-    const { error } = await supabase.from("family_members").delete().eq("id", id);
-    if (error) {
-      alert("Feil: " + error.message);
-    } else {
-      setMembers((prev) => prev.filter((m) => m.id !== id));
+    try {
+      const { error } = await supabase.from("family_members").delete().eq("id", id);
+      if (error) {
+        alert("Feil: " + error.message);
+      } else {
+        setMembers((prev) => prev.filter((m) => m.id !== id));
+      }
+    } catch (e) {
+      alert("Noe gikk galt. Sjekk internettforbindelsen og prøv igjen.");
+    } finally {
+      setDeleting(null);
     }
-    setDeleting(null);
   };
 
   const roleLabel = (val: string) => ROLES.find((r) => r.value === val)?.label ?? val;

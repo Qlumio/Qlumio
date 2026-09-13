@@ -37,24 +37,28 @@ export default function InviteCodeManager({ initialCodes }: Props) {
     setError("");
     setGenerating(true);
 
-    const { data, error } = await supabase.rpc("generate_invite_code", {
-      p_expires_in_hours: expiresInHours,
-      p_max_uses: maxUses,
-    });
+    try {
+      const { data, error } = await supabase.rpc("generate_invite_code", {
+        p_expires_in_hours: expiresInHours,
+        p_max_uses: maxUses,
+      });
 
-    if (error) {
-      setError("Kunne ikke generere kode: " + error.message);
-    } else {
-      // Hent oppdatert liste
-      const { data: newCodes } = await supabase
-        .from("invite_codes")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(10);
-      setCodes(newCodes ?? []);
+      if (error) {
+        setError("Kunne ikke generere kode: " + error.message);
+      } else {
+        // Hent oppdatert liste
+        const { data: newCodes } = await supabase
+          .from("invite_codes")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(10);
+        setCodes(newCodes ?? []);
+      }
+    } catch (e) {
+      setError("Noe gikk galt. Sjekk internettforbindelsen og prøv igjen.");
+    } finally {
+      setGenerating(false);
     }
-
-    setGenerating(false);
   };
 
   const deactivateCode = async (id: string) => {
