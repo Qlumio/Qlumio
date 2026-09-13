@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/client";
 
 export default function ChangePassword() {
   const [newPassword, setNewPassword] = useState("");
@@ -11,6 +11,7 @@ export default function ChangePassword() {
 
   const handleSubmit = async () => {
     setErrorMsg("");
+    setStatus("idle");
 
     if (newPassword.length < 6) {
       setErrorMsg("Passordet må være minst 6 tegn.");
@@ -22,15 +23,28 @@ export default function ChangePassword() {
     }
 
     setStatus("loading");
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
 
-    if (error) {
-      setErrorMsg(error.message);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setErrorMsg("Du er ikke innlogget. Last siden på nytt og prøv igjen.");
+        setStatus("error");
+        return;
+      }
+
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+      if (error) {
+        setErrorMsg(error.message);
+        setStatus("error");
+      } else {
+        setStatus("success");
+        setNewPassword("");
+        setConfirmPassword("");
+      }
+    } catch (e) {
+      setErrorMsg("Noe gikk galt. Prøv igjen.");
       setStatus("error");
-    } else {
-      setStatus("success");
-      setNewPassword("");
-      setConfirmPassword("");
     }
   };
 
