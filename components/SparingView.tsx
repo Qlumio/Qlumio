@@ -452,11 +452,31 @@ export default function SparingView({ accounts: initAccounts, upcomingCosts = []
     monthlyAmount: number,
     balance: number
   ) => {
-    const { data: savingsCat } = await supabase
+    // Hent første sparekategori, eller opprett en automatisk hvis ingen finnes
+    let { data: savingsCat } = await supabase
       .from("budget_categories")
       .select("id")
       .eq("type", "savings")
+      .order("sort_order")
+      .limit(1)
       .maybeSingle();
+
+    if (!savingsCat) {
+      const maxOrderRes = await supabase
+        .from("budget_categories")
+        .select("sort_order")
+        .order("sort_order", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const nextOrder = (maxOrderRes.data?.sort_order ?? 0) + 1;
+      const { data: newCat } = await supabase
+        .from("budget_categories")
+        .insert({ name: "Sparing", type: "savings", sort_order: nextOrder })
+        .select("id")
+        .single();
+      savingsCat = newCat;
+    }
+
     if (!savingsCat) return;
     const { data: newItem } = await supabase
       .from("budget_items")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -8,6 +8,7 @@ import type { FamilyMember, Event, EventException, Task } from "@/lib/types";
 import { getMondayOfWeek, getWeekDates, formatDate, getWeekNumber } from "@/lib/dates";
 import EventModal from "@/components/EventModal";
 import EventActionsModal from "@/components/EventActionsModal";
+import DayView from "@/components/DayView";
 import { EVENT_CATEGORIES } from "@/lib/types";
 
 const DAY_NAMES = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
@@ -151,6 +152,14 @@ export default function WeekGrid({ members, events, exceptions, tasks, currentMo
   const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null);
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
   const [hiddenMemberIds, setHiddenMemberIds] = useState<Set<string>>(new Set());
+
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const toggleMember = (id: string) => {
     setHiddenMemberIds((prev) => {
@@ -315,6 +324,17 @@ export default function WeekGrid({ members, events, exceptions, tasks, currentMo
     setActiveEvent(null);
     router.refresh();
   };
+
+  if (isMobile) {
+    return (
+      <DayView
+        members={members}
+        events={events}
+        exceptions={exceptions}
+        tasks={tasks}
+      />
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
