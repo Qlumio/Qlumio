@@ -75,24 +75,41 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       if (accessToken && refreshToken) {
         try {
-          const { data, error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
+          // VIKTIG: supabase.auth.setSession() har vist seg å kunne henge
+          // uten å noensinne resolve eller rejecte (observert flere ganger).
+          // Vi setter derfor en hard tidsgrense – appen skal ALDRI stå og
+          // laste for alltid, uansett hva som skjer på Supabase sin side.
+          const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
+            Promise.race([
+              promise,
+              new Promise<T>((_, reject) =>
+                setTimeout(() => reject(new Error("Tidsavbrudd ved gjenoppretting av sesjon")), ms)
+              ),
+            ]);
+
+          const { data, error } = await withTimeout(
+            supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            }),
+            6000
+          );
 
           if (!error && data.session?.user) {
             setUser(data.session.user);
-            await loadMemberData(data.session.user, data.session.access_token, data.session.refresh_token);
+            await withTimeout(
+              loadMemberData(data.session.user, data.session.access_token, data.session.refresh_token),
+              6000
+            );
           } else {
             // IKKE slett cookies her – kan være en forbigående nettverksfeil,
             // ikke nødvendigvis en faktisk ugyldig sesjon. Serveren (middleware)
             // sjekker allerede utløpstid og rydder opp der det faktisk trengs.
-            // Å slette cookies aggressivt her kan logge brukeren stille ut
-            // selv om sesjonen egentlig var gyldig.
             console.error("Kunne ikke gjenopprette sesjon:", error?.message);
           }
         } catch (e) {
-          console.error("Feil ved sesjonsgjenoppretting:", e);
+          // Fanger både faktiske feil OG tidsavbrudd – appen fortsetter uansett.
+          console.error("Feil eller tidsavbrudd ved sesjonsgjenoppretting:", e);
         }
       }
 
