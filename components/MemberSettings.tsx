@@ -148,26 +148,39 @@ export default function MemberSettings({ members: initialMembers, currentUserPer
 
   const addMember = async () => {
     if (!newName.trim()) return;
-    setSaving(true);
-    const { data, error } = await supabase
-      .from("family_members")
-      .insert({
-        name: newName.trim(),
-        role: newRole,
-        color: COLORS[members.length % COLORS.length].value,
-        permission_level: "member",
-      })
-      .select()
-      .single();
 
-    if (error) {
-      alert("Feil: " + error.message);
-    } else if (data) {
-      setMembers((prev) => [...prev, data as FamilyMember]);
-      setNewName("");
-      setNewRole("parent");
+    const familyId = members[0]?.family_id;
+    if (!familyId) {
+      alert("Feil: Kunne ikke finne familie-ID. Last siden på nytt og prøv igjen.");
+      return;
     }
-    setSaving(false);
+
+    setSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from("family_members")
+        .insert({
+          name: newName.trim(),
+          role: newRole,
+          color: COLORS[members.length % COLORS.length].value,
+          permission_level: "member",
+          family_id: familyId,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        alert("Feil: " + error.message);
+      } else if (data) {
+        setMembers((prev) => [...prev, data as FamilyMember]);
+        setNewName("");
+        setNewRole("parent");
+      }
+    } catch (e) {
+      alert("Noe gikk galt. Prøv igjen.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const deleteMember = async (id: string) => {
