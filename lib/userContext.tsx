@@ -9,7 +9,7 @@ import {
   ReactNode,
 } from "react";
 import type { User } from "@supabase/supabase-js";
-import { supabase, setAuthCookies, clearAuthCookies } from "@/lib/supabase/client";
+import { supabase, setAuthCookies, clearAuthCookies, getCookie, AUTH_COOKIE_ACCESS, AUTH_COOKIE_REFRESH } from "@/lib/supabase/client";
 import type { FamilyMember } from "./types";
 
 // ─── Context type ─────────────────────────────────────────────────────────────
@@ -66,13 +66,36 @@ export function UserProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        await loadMemberData(session.user, session.access_token, session.refresh_token);
+    // Supabase lagrer IKKE lenger sesjonen selv (persistSession: false).
+    // Vi må derfor selv gjenopprette den fra våre egne cookies ved oppstart.
+    // Dette er med hensikt – se kommentar i lib/supabase/client.ts.
+    const bootstrap = async () => {
+      const accessToken = getCookie(AUTH_COOKIE_ACCESS);
+      const refreshToken = getCookie(AUTH_COOKIE_REFRESH);
+
+      if (accessToken && refreshToken) {
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (!error && data.session?.user) {
+            setUser(data.session.user);
+            await loadMemberData(data.session.user, data.session.access_token, data.session.refresh_token);
+          } else {
+            // Ugyldig/utløpt sesjon – rydd opp slik at vi ikke sitter fast
+            clearAuthCookies();
+          }
+        } catch {
+          clearAuthCookies();
+        }
       }
+
       setIsLoaded(true);
-    });
+    };
+
+    bootstrap();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
