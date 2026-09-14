@@ -9,21 +9,16 @@ import {
   ReactNode,
 } from "react";
 import type { User } from "@supabase/supabase-js";
-import { supabase, setAuthCookies, clearAuthCookies, getCookie, AUTH_COOKIE_ACCESS, AUTH_COOKIE_REFRESH } from "@/lib/supabase/client";
+import { supabase, setAuthCookies, clearAuthCookies } from "@/lib/supabase/client";
 import type { FamilyMember } from "./types";
 
 // ─── Context type ─────────────────────────────────────────────────────────────
 
 type AuthContextType = {
-  /** Supabase Auth-bruker */
   user: User | null;
-  /** Familiemedlems-profilen koblet til brukeren */
   familyMember: FamilyMember | null;
-  /** UUID til familien – brukes for inserts i klientkode */
   familyId: string | null;
-  /** true når initial auth-sjekk er ferdig */
   isLoaded: boolean;
-  /** Logger ut og rydder cookies */
   signOut: () => Promise<void>;
 
   // Bakoverkompatibilitet
@@ -66,57 +61,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    // Supabase lagrer IKKE lenger sesjonen selv (persistSession: false).
-    // Vi må derfor selv gjenopprette den fra våre egne cookies ved oppstart.
-    // Dette er med hensikt – se kommentar i lib/supabase/client.ts.
-    const bootstrap = async () => {
-      const accessToken = getCookie(AUTH_COOKIE_ACCESS);
-      const refreshToken = getCookie(AUTH_COOKIE_REFRESH);
-
-      if (accessToken && refreshToken) {
-        try {
-          // VIKTIG: supabase.auth.setSession() har vist seg å kunne henge
-          // uten å noensinne resolve eller rejecte (observert flere ganger).
-          // Vi setter derfor en hard tidsgrense – appen skal ALDRI stå og
-          // laste for alltid, uansett hva som skjer på Supabase sin side.
-          const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
-            Promise.race([
-              promise,
-              new Promise<T>((_, reject) =>
-                setTimeout(() => reject(new Error("Tidsavbrudd ved gjenoppretting av sesjon")), ms)
-              ),
-            ]);
-
-          const { data, error } = await withTimeout(
-            supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            }),
-            6000
-          );
-
-          if (!error && data.session?.user) {
-            setUser(data.session.user);
-            await withTimeout(
-              loadMemberData(data.session.user, data.session.access_token, data.session.refresh_token),
-              6000
-            );
-          } else {
-            // IKKE slett cookies her – kan være en forbigående nettverksfeil,
-            // ikke nødvendigvis en faktisk ugyldig sesjon. Serveren (middleware)
-            // sjekker allerede utløpstid og rydder opp der det faktisk trengs.
-            console.error("Kunne ikke gjenopprette sesjon:", error?.message);
-          }
-        } catch (e) {
-          // Fanger både faktiske feil OG tidsavbrudd – appen fortsetter uansett.
-          console.error("Feil eller tidsavbrudd ved sesjonsgjenoppretting:", e);
-        }
+    // Supabase sin egen getSession() leser fra lokal lagring (localStorage)
+    // og gjør IKKE et nettverkskall med mindre sesjonen faktisk er utløpt.
+    // Dette er raskt og pålitelig – i motsetning til å manuelt kalle
+    // setSession() med tokens fra våre egne cookies, som viste seg å kunne
+    // henge i produksjon.
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        await loadMemberData(session.user, session.access_token, session.refresh_token);
       }
-
       setIsLoaded(true);
-    };
-
-    bootstrap();
+    }).catch(() => {
+      setIsLoaded(true);
+    });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {

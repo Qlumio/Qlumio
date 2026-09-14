@@ -5,16 +5,16 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 // Browser-klient – brukes i Client Components
 //
-// VIKTIG: persistSession er skrudd AV med hensikt.
-// Supabase sin egen localStorage-lagring kan bli stående igjen med en
-// korrupt/ugyldig sesjon (f.eks. etter at en bruker er slettet og opprettet
-// på nytt). Når det skjer, kan Supabase-klienten henge seg opp internt ved
-// neste innlogging fordi den prøver å gjenopprette den ugyldige sesjonen
-// først. Ved å styre alt selv via våre egne cookies (qlumio-access-token /
-// qlumio-refresh-token) unngår vi denne feilklassen helt.
+// MERK: Vi prøvde tidligere å slå av persistSession og gjenopprette sesjonen
+// manuelt fra våre egne cookies ved oppstart. Det viste seg å gjøre ting VERRE
+// – supabase.auth.setSession() hang konsekvent i over 6 sekunder, selv med
+// helt ferske tokens rett fra innlogging. Vi går derfor tilbake til Supabase
+// sin egen, velprøvde sesjonshåndtering (persistSession: true), som fungerte
+// pålitelig. Middleware styrer uavhengig av dette serverside-sikkerheten via
+// våre egne qlumio-access-token/qlumio-refresh-token cookies.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: false,
+    persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false,
     // Deaktiver Chrome sin navigator.locks som kan henge og gi svart skjerm
@@ -39,8 +39,6 @@ export function clearAuthCookies() {
   document.cookie = `${AUTH_COOKIE_REFRESH}=;path=/;max-age=0`;
 }
 
-// Leser en enkelt cookie-verdi client-side. Brukes til å gjenopprette
-// sesjonen fra våre egne cookies ved oppstart, siden persistSession er av.
 export function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
